@@ -1,0 +1,14 @@
+name: thought_1_firebase_style
+description: "Thought 1: Developing event-driven triggers mapping the official Firebase Functions SDK paradigm."
+publish_to: none
+
+environment:
+  sdk: ^3.5.0
+
+dependencies:
+  firebase_functions: ^0.6.0
+  meta: ^1.17.0
+  shelf: ^1.4.2
+
+dev_dependencies:
+  build_runner: ^2.10.5

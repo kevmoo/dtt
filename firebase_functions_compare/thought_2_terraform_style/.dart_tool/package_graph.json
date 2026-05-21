@@ -1,27 +1,16 @@
 {
   "roots": [
-    "option_2_static_shelf"
+    "thought_2_terraform_style"
   ],
   "packages": [
     {
-      "name": "option_2_static_shelf",
+      "name": "thought_2_terraform_style",
       "version": "0.0.0",
       "dependencies": [
-        "google_cloud",
         "protobuf",
         "shelf"
       ],
       "devDependencies": []
-    },
-    {
-      "name": "google_cloud",
-      "version": "0.5.0",
-      "dependencies": [
-        "collection",
-        "http",
-        "meta",
-        "stack_trace"
-      ]
     },
     {
       "name": "protobuf",
@@ -45,25 +34,13 @@
       ]
     },
     {
-      "name": "stack_trace",
-      "version": "1.12.1",
+      "name": "http_parser",
+      "version": "4.1.2",
       "dependencies": [
-        "path"
-      ]
-    },
-    {
-      "name": "meta",
-      "version": "1.18.2",
-      "dependencies": []
-    },
-    {
-      "name": "http",
-      "version": "1.6.0",
-      "dependencies": [
-        "async",
-        "http_parser",
-        "meta",
-        "web"
+        "collection",
+        "source_span",
+        "string_scanner",
+        "typed_data"
       ]
     },
     {
@@ -77,6 +54,13 @@
       "dependencies": []
     },
     {
+      "name": "typed_data",
+      "version": "1.4.0",
+      "dependencies": [
+        "collection"
+      ]
+    },
+    {
       "name": "stream_channel",
       "version": "2.1.4",
       "dependencies": [
@@ -84,39 +68,16 @@
       ]
     },
     {
+      "name": "stack_trace",
+      "version": "1.12.1",
+      "dependencies": [
+        "path"
+      ]
+    },
+    {
       "name": "path",
       "version": "1.9.1",
       "dependencies": []
-    },
-    {
-      "name": "http_parser",
-      "version": "4.1.2",
-      "dependencies": [
-        "collection",
-        "source_span",
-        "string_scanner",
-        "typed_data"
-      ]
-    },
-    {
-      "name": "async",
-      "version": "2.13.1",
-      "dependencies": [
-        "collection",
-        "meta"
-      ]
-    },
-    {
-      "name": "web",
-      "version": "1.1.1",
-      "dependencies": []
-    },
-    {
-      "name": "typed_data",
-      "version": "1.4.0",
-      "dependencies": [
-        "collection"
-      ]
     },
     {
       "name": "string_scanner",
@@ -137,6 +98,19 @@
     {
       "name": "term_glyph",
       "version": "1.2.2",
+      "dependencies": []
+    },
+    {
+      "name": "async",
+      "version": "2.13.1",
+      "dependencies": [
+        "collection",
+        "meta"
+      ]
+    },
+    {
+      "name": "meta",
+      "version": "1.18.2",
       "dependencies": []
     }
   ],
