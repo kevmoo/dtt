@@ -162,7 +162,6 @@ class DttGenerator {
     };
 
     final packageName = p.basename(packageDir);
-    final registrations = StringBuffer()..write('DttEventRouter()');
 
     for (final trigger in triggers) {
       final type = trigger['type']!;
@@ -179,17 +178,6 @@ class DttGenerator {
         'package:$packageName/src/handlers/'
         '${_camelToSnake(handler)}.dart',
       );
-
-      final path = trigger['path']!;
-      final enumName = meta.enumName;
-      final defaultPath = meta.defaultPath;
-
-      final pathArg = path != defaultPath ? '\n      path: \'$path\',' : '';
-      registrations.write('''
-    ..registerTrigger(
-      trigger: $enumName,$pathArg
-      handler: $handler,
-    )''');
     }
 
     // Sort the imports alphabetically to satisfy strict directives ordering
@@ -204,6 +192,26 @@ class DttGenerator {
         ..modifier = MethodModifier.async
         ..body = Block((b) {
           // final router = DttEventRouter()..registerTrigger(...);
+          final registrations = StringBuffer()..write('DttEventRouter()');
+
+          for (final trigger in triggers) {
+            final type = trigger['type']!;
+            final meta = _typeCatalog[type]!;
+            final handler = trigger['handler']!;
+            final path = trigger['path']!;
+            final enumName = meta.enumName;
+            final defaultPath = meta.defaultPath;
+
+            final pathArg = path != defaultPath
+                ? '\n      path: \'$path\','
+                : '';
+            registrations.write('''
+    ..registerTrigger(
+      trigger: $enumName,$pathArg
+      handler: $handler,
+    )''');
+          }
+
           final routerVar = declareFinal(
             'router',
           ).assign(CodeExpression(Code(registrations.toString())));
@@ -260,6 +268,25 @@ class DttGenerator {
     if (!await tfDir.exists()) {
       await tfDir.create(recursive: true);
     }
+
+    // Dynamically search for the absolute path of the gcloud executable!
+    var gcloudPath = 'gcloud';
+    try {
+      final whichResult = Process.runSync('which', ['gcloud']);
+      if (whichResult.exitCode == 0) {
+        gcloudPath = whichResult.stdout.toString().trim();
+      } else {
+        final fallback = File(
+          '/Users/kevmoo/.local/share/mise/installs/gcloud/569.0.0/bin/gcloud',
+        );
+        if (fallback.existsSync()) {
+          gcloudPath = fallback.path;
+        }
+      }
+    } catch (_) {}
+
+    // Resolve the dynamic relative path from workspaceRoot/terraform to packageDir!
+    final packageRelPath = p.relative(packageDir, from: workspaceRoot);
 
     final hasFirestore = triggers.any(
       (t) => t['type'] == 'google.cloud.firestore.document.v1.written',
@@ -319,7 +346,13 @@ class DttGenerator {
             'Retrieve live metadata of our pre-deployed OS-only service',
           )
           ..attribute('name', HclValue.string(serviceName))
-          ..attribute('location', const HclValue.raw('var.region'));
+          ..attribute('location', const HclValue.raw('var.region'))
+          ..attribute(
+            'depends_on',
+            const HclValue.list(<HclValue>[
+              HclValue.raw('null_resource.cloud_run_deploy'),
+            ]),
+          );
     mainFile.addBlock(serviceData);
 
     // Block 3.1: Dynamic Project Data Source lookup (needed for project
@@ -329,6 +362,69 @@ class DttGenerator {
       labels: const <String>['google_project', 'project'],
     )..comment('Retrieve live project metadata for Service Agent referencing');
     mainFile.addBlock(projectData);
+
+    // Block 3.2: E2E Source-Based deployment compiler utilizing Google
+    // Buildpacks
+    final builderShell =
+        '''
+      # 1. Create a clean, isolated temporary staging directory inside system /tmp!
+      STAGE_DIR=\$(mktemp -d -t dtt-build-XXXXXX)
+      echo "📡 Created isolated temporary staging directory: \$STAGE_DIR"
+
+      # 2. Structure the clean target folders
+      mkdir -p \$STAGE_DIR/bin
+
+      # 3. Cross-compile the Dart server to a standalone native Linux AOT ELF binary!
+      cd \${path.module}/../$packageRelPath
+      dart pub get
+      dart compile exe bin/server.dart \\
+        -o \$STAGE_DIR/bin/server \\
+        --target-os linux \\
+        --target-arch x64
+
+      # 4. Deploy the compiled temp directory directly to Cloud Run using osonly base image!
+      $gcloudPath beta run deploy $serviceName \\
+        --source=\$STAGE_DIR \\
+        --region=\${var.region} \\
+        --ingress=all \\
+        --allow-unauthenticated \\
+        --project=\${var.project_id} \\
+        --no-build \\
+        --base-image=osonly24 \\
+        --command=bin/server \\
+        --quiet
+
+      # 5. Clean up the temporary staging directory cleanly!
+      rm -rf \$STAGE_DIR
+''';
+
+    final buildPush =
+        HclBlock(
+            type: 'resource',
+            labels: const <String>['null_resource', 'cloud_run_deploy'],
+          )
+          ..comment(
+            'E2E Source-Based deployment compiler utilizing Google Buildpacks '
+            'preventing local codebase pollution',
+          )
+          ..attribute(
+            'triggers',
+            const HclValue.map(<String, HclValue>{
+              'config_hash': HclValue.raw(
+                r'fileexists("${path.module}/../dtt.yaml") ? '
+                r'filesha256("${path.module}/../dtt.yaml") : "default"',
+              ),
+              'server_hash': HclValue.raw(
+                r'fileexists("${path.module}/../bin/server.dart") ? '
+                r'filesha256("${path.module}/../bin/server.dart") : "default"',
+              ),
+            }),
+          )
+          ..addBlock(
+            HclBlock(type: 'provisioner', labels: const <String>['local-exec'])
+              ..attribute('command', HclValue.raw('<<EOT\n$builderShell\nEOT')),
+          );
+    mainFile.addBlock(buildPush);
 
     // Block 4: Zero-Trust minimum privilege service account mapping
     final serviceAccount =
@@ -490,6 +586,37 @@ class DttGenerator {
             ),
           );
     mainFile.addBlock(pubsubTokenCreator);
+
+    // Block 6.4: Grant Service Account User role to Eventarc Service Agent on
+    // Custom SA
+    final eventarcSaUser =
+        HclBlock(
+            type: 'resource',
+            labels: const <String>[
+              'google_service_account_iam_member',
+              'eventarc_sa_user',
+            ],
+          )
+          ..comment(
+            'Grant Eventarc Service Agent permissions to act as our Custom SA',
+          )
+          ..attribute(
+            'service_account_id',
+            const HclValue.raw('google_service_account.eventarc_invoker.name'),
+          )
+          ..attribute(
+            'role',
+            const HclValue.string('roles/iam.serviceAccountUser'),
+          )
+          ..attribute(
+            'member',
+            const HclValue.string(
+              'serviceAccount:service-'
+              r'${data.google_project.project.number}'
+              '@gcp-sa-eventarc.iam.gserviceaccount.com',
+            ),
+          );
+    mainFile.addBlock(eventarcSaUser);
 
     // Block 7: Dynamically append Google Eventarc trigger resource blocks
     for (final trigger in triggers) {

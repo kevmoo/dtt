@@ -70,6 +70,13 @@ triggers:
         check(await mainTfFile.exists()).isTrue();
 
         final mainTfContent = await mainTfFile.readAsString();
+        check(mainTfContent).contains('data "google_project" "project" {');
+        check(
+          mainTfContent,
+        ).contains('data "google_cloud_run_v2_service" "service"');
+        check(
+          mainTfContent,
+        ).contains('resource "null_resource" "cloud_run_deploy"');
         check(
           mainTfContent,
         ).contains('resource "google_service_account" "eventarc_invoker"');

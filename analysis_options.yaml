@@ -27,7 +27,6 @@ linter:
     - avoid_private_typedef_functions
     - avoid_returning_this
     - avoid_unused_constructor_parameters
-    - cascade_invocations
     - join_return_with_assignment
     - missing_whitespace_between_adjacent_strings
     - no_adjacent_strings_in_list
