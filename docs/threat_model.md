@@ -1,6 +1,6 @@
 # Security Design & Threat Model Specification
 
-![Dart Terraform Triggers Security Banner](file:///Users/kevmoo/github/kevmoo/dart_terraform_triggers/docs/assets/project_banner.png)
+![Dart Terraform Triggers Security Banner](assets/project_banner.png)
 
 This document maps out the comprehensive security boundaries, trust models, and sensitive data flows for the `dart_terraform_triggers` (CLI tool `dtt`) framework and the serverless microservices it provisions. It establishes security guidelines for local code-generation, remote schema downloads, container isolation, and deployment state storage.
 
@@ -11,7 +11,7 @@ This document maps out the comprehensive security boundaries, trust models, and 
 The system operates across two discrete execution environments with an asymmetric security posture:
 
 1. **Developer Workstation (Local CLI)**:
-   - Evaluates developer-authored [dtt.yaml](file:///Users/kevmoo/github/kevmoo/dart_terraform_triggers/dtt.yaml) configurations.
+   - Evaluates developer-authored [dtt.yaml](../dtt.yaml) configurations.
    - Accesses Google Cloud Service Agent directories and local Docker instances.
    - Fetches event proto definitions from external sources.
    - Executes system commands to trigger compilation and deployment.

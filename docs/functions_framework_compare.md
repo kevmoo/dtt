@@ -1,8 +1,8 @@
 # Architectural Evaluation & Proposal: Functions Framework Integration
 
-![Dart Terraform Triggers Architectural Banner](file:///Users/kevmoo/github/kevmoo/dart_terraform_triggers/docs/assets/project_banner.png)
+![Dart Terraform Triggers Architectural Banner](assets/project_banner.png)
 
-This document provides a deep technical review and structural proposal analyzing the integration path between our proposed `dart_terraform_triggers` (`dtt`) library and the official Google-supported [functions-framework-dart](file:///Users/kevmoo/github/functions-framework-dart) package. 
+This document provides a deep technical review and structural proposal analyzing the integration path between our proposed `dart_terraform_triggers` (`dtt`) library and the official Google-supported [functions-framework-dart](../../../functions-framework-dart) package. 
 
 It maps their codebase patterns, uncovers standard integration barriers, evaluates technical choices, and details three strategic paths: **Build On Top**, **Reimagine / Replace**, and the **Hybrid Upstream** approach.
 
@@ -10,11 +10,11 @@ It maps their codebase patterns, uncovers standard integration barriers, evaluat
 
 ## 1. Deconstructing the `functions-framework-dart` Monorepo
 
-Following a structural review of the [functions-framework-dart](file:///Users/kevmoo/github/functions-framework-dart) repository, the system relies on a two-part monorepo architecture leveraging Native Dart Workspaces and Melos:
+Following a structural review of the [functions-framework-dart](../../../functions-framework-dart) repository, the system relies on a two-part monorepo architecture leveraging Native Dart Workspaces and Melos:
 
 1.  **`functions_framework` (Runtime Library)**:
-    - Sets up a standard [shelf](file://https://pub.dev/packages/shelf) server equipped with termination handlers and connection configurations.
-    - Exposes annotations (`@CloudFunction()`) and defines a generic [CloudEvent](file:///Users/kevmoo/github/functions-framework-dart/functions_framework/lib/src/cloud_event.dart) payload model.
+    - Sets up a standard [shelf](https://pub.dev/packages/shelf) server equipped with termination handlers and connection configurations.
+    - Exposes annotations (`@CloudFunction()`) and defines a generic [CloudEvent](../../../functions-framework-dart/functions_framework/lib/src/cloud_event.dart) payload model.
     - Implements HTTP CloudEvent bindings, parsing Binary and Structured payloads into Map or dynamic arrays.
 2.  **`functions_framework_builder` (Annotation Code-Gen Compiler)**:
     - Runs at build-time using Dart's standard `build_runner` framework.
@@ -48,7 +48,7 @@ void function(CloudEvent event, RequestContext context) {
 This forces developers to hunt down JSON layouts on documentation portals and manually type map-string index keys, representing a high vulnerability vector for runtime crashes.
 
 ### Gap 2: High Proto Schema Compilation Overhead
-The official `protobuf_firestore` sample demonstrates the current method for compiling Google Cloud Events schemas into Dart classes. It relies on a shell script [examples/protobuf_firestore/tool/regenerate_protos.sh](file:///Users/kevmoo/github/functions-framework-dart/examples/protobuf_firestore/tool/regenerate_protos.sh):
+The official `protobuf_firestore` sample demonstrates the current method for compiling Google Cloud Events schemas into Dart classes. It relies on a shell script [examples/protobuf_firestore/tool/regenerate_protos.sh](../../../functions-framework-dart/examples/protobuf_firestore/tool/regenerate_protos.sh):
 - Developers **must manually clone** the colossal `googleapis/googleapis` repository locally.
 - Developers **must manually clone** the `googleapis/google-cloudevents` schema repository.
 - Developers configure environment variables `GOOGLEAPIS` and `GOOGLE_CLOUD_EVENTS` pointing to local checkout folders.
@@ -93,10 +93,10 @@ graph TD
 We treat `functions_framework` as the runtime web server engine and annotation executor. `dtt` acts as an **outer orchestrator, schema resolver, type-safe wrapper, and infrastructure generation layer**.
 
 #### How the Workflow Maps:
-1.  Developer adds triggers to [dtt.yaml](file:///Users/kevmoo/github/kevmoo/dart_terraform_triggers/dtt.yaml).
+1.  Developer adds triggers to [dtt.yaml](../dtt.yaml).
 2.  `dtt` automatically resolves the target event schema via Google's Eventarc API.
 3.  `dtt` downloads only the specific target proto files and dependencies from GitHub and compiles them under `.dart_tool/dtt/` using `protoc` (solving the manual monorepo dependency cloning problem).
-4.  `dtt` automatically generates [lib/functions.dart](file:///Users/kevmoo/github/kevmoo/dart_terraform_triggers/lib/functions.dart), acting as the annotated facade wrapping `functions_framework`'s generic engine. It auto-unpacks dynamic payloads into type-safe models before forwarding them to the developer:
+4.  `dtt` automatically generates [lib/functions.dart](../lib/functions.dart), acting as the annotated facade wrapping `functions_framework`'s generic engine. It auto-unpacks dynamic payloads into type-safe models before forwarding them to the developer:
     ```dart
     // lib/functions.dart (Auto-generated by dtt)
     import 'package:functions_framework/functions_framework.dart';
@@ -133,7 +133,7 @@ We treat `functions_framework` as the runtime web server engine and annotation e
 We bypass `functions_framework` entirely. `dtt` provides a **lightweight runtime package and CLI compiler in one**, generating completely **static Shelf servers** containing strongly-typed routing blocks.
 
 #### How the Workflow Maps:
-1.  Developer declares triggers and service configurations inside [dtt.yaml](file:///Users/kevmoo/github/kevmoo/dart_terraform_triggers/dtt.yaml).
+1.  Developer declares triggers and service configurations inside [dtt.yaml](../dtt.yaml).
 2.  `dtt` maps, fetches, and compiles schema bindings (exactly as in Option 1).
 3.  Instead of annotations and build runner, `dtt generate` outputs a **completely static, highly readable routing server** inside `bin/server.dart` mapping pointer indices:
     ```dart

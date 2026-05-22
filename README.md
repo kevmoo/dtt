@@ -1,6 +1,6 @@
 # Dart Terraform Triggers (`dtt`)
 
-![Dart Terraform Triggers Project Banner](file:///Users/kevmoo/github/kevmoo/dart_terraform_triggers/docs/assets/project_banner.png)
+![Dart Terraform Triggers Project Banner](docs/assets/project_banner.png)
 
 [![Health Status](https://img.shields.io/badge/CI-passing-brightgreen.svg)](#)
 [![Security Audited](https://img.shields.io/badge/Security-Audited-blue.svg)](#)
@@ -17,10 +17,10 @@ A high-performance, developer-centric toolchain and library designed to make it 
 
 We have laid out a structured set of technical plans, architecture specifications, and safety assessments for this project. Explore the links below:
 
-*   **[Original Brainstorm Doc](file:///Users/kevmoo/github/kevmoo/dart_terraform_triggers/docs/brainstorm.md)**: The raw initial conceptualization.
-*   **[Technical Architecture & System Design Specification](file:///Users/kevmoo/github/kevmoo/dart_terraform_triggers/docs/architecture.md)**: Deep dive into the data flows, OIDC authentication, schema resolvers, code-gen mechanisms, and custom routing engines.
-*   **[Security Plan & Threat Model Specification](file:///Users/kevmoo/github/kevmoo/dart_terraform_triggers/docs/threat_model.md)**: High-fidelity security mapping detailing trust boundaries, privileged operations, shell command sanitization, and ingress lockdowns.
-*   **[Phased Implementation & Verification Plan](file:///Users/kevmoo/github/kevmoo/dart_terraform_triggers/docs/implementation_plan.md)**: Step-by-step developer task breakdowns, unit testing coverage plans, hermetic CLI integration tests, and automated vulnerability scanning guidelines.
+*   **[Original Brainstorm Doc](docs/brainstorm.md)**: The raw initial conceptualization.
+*   **[Technical Architecture & System Design Specification](docs/architecture.md)**: Deep dive into the data flows, OIDC authentication, schema resolvers, code-gen mechanisms, and custom routing engines.
+*   **[Security Plan & Threat Model Specification](docs/threat_model.md)**: High-fidelity security mapping detailing trust boundaries, privileged operations, shell command sanitization, and ingress lockdowns.
+*   **[Phased Implementation & Verification Plan](docs/implementation_plan.md)**: Step-by-step developer task breakdowns, unit testing coverage plans, hermetic CLI integration tests, and automated vulnerability scanning guidelines.
 
 ---
 
@@ -32,7 +32,7 @@ With `dtt`, configuring, coding, and deploying an event-driven serverless system
 ```bash
 dtt init --project-id=my-gcp-project --service-name=gcs-uploader
 ```
-This scaffolds a standard Dart microservice equipped with our server structure and establishes the root [dtt.yaml](file:///Users/kevmoo/github/kevmoo/dart_terraform_triggers/dtt.yaml) configuration file.
+This scaffolds a standard Dart microservice equipped with our server structure and establishes the root [dtt.yaml](dtt.yaml) configuration file.
 
 ### 2. Register an Eventarc Trigger Interactively
 ```bash

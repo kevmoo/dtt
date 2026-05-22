@@ -1,6 +1,6 @@
 # Dart Terraform Triggers: Technical Architecture & System Design
 
-![Dart Terraform Triggers Project Banner](file:///Users/kevmoo/github/kevmoo/dart_terraform_triggers/docs/assets/project_banner.png)
+![Dart Terraform Triggers Project Banner](assets/project_banner.png)
 
 This document provides a high-fidelity system design and architectural specification for `dart_terraform_triggers` (CLI tool codenamed `dtt`). This library and CLI orchestrate the serverless lifecycle for Dart developers deploying to Google Cloud Run, automatically configuring Google Eventarc triggers via Terraform, and compiling type-safe Event payload models.
 
@@ -11,7 +11,7 @@ This document provides a high-fidelity system design and architectural specifica
 Modern event-driven development on Google Cloud Platform (GCP) requires combining multiple layers: serverless computing (Cloud Run), event-routing networks (Eventarc), resource provisioning engines (Terraform), and type-safe backend environments (Dart). Currently, Dart developers must manually orchestrate these configurations, resolve Eventarc JSON/Protobuf specifications, write Shelf webhook routers, and design infrastructure templates.
 
 `dtt` bridges this gap, exposing a unified command-line and package interface:
-1. **Low-friction Setup**: Simple configuration using a root-level [dtt.yaml](file:///Users/kevmoo/github/kevmoo/dart_terraform_triggers/dtt.yaml) file.
+1. **Low-friction Setup**: Simple configuration using a root-level [dtt.yaml](../dtt.yaml) file.
 2. **Schema Discovery**: Automatic resolution and code-generation of official GCP event schemas directly from the `google-cloudevents` repository.
 3. **Type-Safe Routing**: Seamless deserialization of incoming CloudEvents into strongly-typed Dart protobuf models.
 4. **Declarative Infrastructure**: Dynamic code-generation of standard, production-grade Terraform resources, ensuring secure, repeatable deployments.
@@ -34,16 +34,16 @@ flowchart LR
 
 ### Phase 1: Initialization (`dtt init`)
 Creates the initial directory structure, setting up standard microservice files:
-- [pubspec.yaml](file:///Users/kevmoo/github/kevmoo/dart_terraform_triggers/pubspec.yaml) initialized with required dependencies (`shelf`, `googleapis`, `protobuf`, `args`).
-- [dtt.yaml](file:///Users/kevmoo/github/kevmoo/dart_terraform_triggers/dtt.yaml) template for project metadata and trigger registrations.
-- [bin/server.dart](file:///Users/kevmoo/github/kevmoo/dart_terraform_triggers/bin/server.dart) standard Shelf HTTP server equipped with the Eventarc routing middleware.
+- [pubspec.yaml](../pubspec.yaml) initialized with required dependencies (`shelf`, `googleapis`, `protobuf`, `args`).
+- [dtt.yaml](../dtt.yaml) template for project metadata and trigger registrations.
+- [bin/server.dart](../bin/server.dart) standard Shelf HTTP server equipped with the Eventarc routing middleware.
 
 ### Phase 2: Adding Triggers (`dtt trigger add`)
-An interactive or declarative command that updates [dtt.yaml](file:///Users/kevmoo/github/kevmoo/dart_terraform_triggers/dtt.yaml):
+An interactive or declarative command that updates [dtt.yaml](../dtt.yaml):
 1. User specifies the target GCP event provider and event type (e.g., Storage bucket uploads).
 2. The engine fetches the corresponding proto file from `github.com/googleapis/google-cloudevents`.
 3. Compiles the `.proto` using `protoc` and the Dart `protoc_plugin`.
-4. Stubs a strongly-typed handler function in [lib/src/handlers/](file:///Users/kevmoo/github/kevmoo/dart_terraform_triggers/lib/src/handlers/) and registers it in the central router.
+4. Stubs a strongly-typed handler function in [lib/src/handlers/](../lib/src/handlers) and registers it in the central router.
 
 ### Phase 3: Safe Deployment (`dtt deploy`)
 Automates containerization and serverless infrastructure deployment:
@@ -89,15 +89,15 @@ sequenceDiagram
 
 ## 4. CLI Architecture & Commands
 
-The command-line interface is driven by `package:args` and is structured using the Command design pattern. The central runner is defined in [lib/src/cli/runner.dart](file:///Users/kevmoo/github/kevmoo/dart_terraform_triggers/lib/src/cli/runner.dart).
+The command-line interface is driven by `package:args` and is structured using the Command design pattern. The central runner is defined in [lib/src/cli/runner.dart](../lib/src/cli/runner.dart).
 
 ### Directory & Command Classes Map
-- **CLI Runner**: [lib/src/cli/runner.dart](file:///Users/kevmoo/github/kevmoo/dart_terraform_triggers/lib/src/cli/runner.dart)
-- **Init Command**: [lib/src/cli/commands/init.dart](file:///Users/kevmoo/github/kevmoo/dart_terraform_triggers/lib/src/cli/commands/init.dart)
-- **Trigger List Command**: [lib/src/cli/commands/trigger_list.dart](file:///Users/kevmoo/github/kevmoo/dart_terraform_triggers/lib/src/cli/commands/trigger_list.dart)
-- **Trigger Add Command**: [lib/src/cli/commands/trigger_add.dart](file:///Users/kevmoo/github/kevmoo/dart_terraform_triggers/lib/src/cli/commands/trigger_add.dart)
-- **Generate Command**: [lib/src/cli/commands/generate.dart](file:///Users/kevmoo/github/kevmoo/dart_terraform_triggers/lib/src/cli/commands/generate.dart)
-- **Deploy Command**: [lib/src/cli/commands/deploy.dart](file:///Users/kevmoo/github/kevmoo/dart_terraform_triggers/lib/src/cli/commands/deploy.dart)
+- **CLI Runner**: [lib/src/cli/runner.dart](../lib/src/cli/runner.dart)
+- **Init Command**: [lib/src/cli/commands/init.dart](../lib/src/cli/commands/init.dart)
+- **Trigger List Command**: [lib/src/cli/commands/trigger_list.dart](../lib/src/cli/commands/trigger_list.dart)
+- **Trigger Add Command**: [lib/src/cli/commands/trigger_add.dart](../lib/src/cli/commands/trigger_add.dart)
+- **Generate Command**: [lib/src/cli/commands/generate.dart](../lib/src/cli/commands/generate.dart)
+- **Deploy Command**: [lib/src/cli/commands/deploy.dart](../lib/src/cli/commands/deploy.dart)
 
 ### Configuration Schema (`dtt.yaml`)
 A simple declarative configuration defines the local metadata and active Eventarc mapping:
@@ -229,11 +229,11 @@ void onStorageUpload(CloudEvent<StorageObjectData> event) {
 
 ## 7. Automated Infrastructure Generation (Terraform)
 
-Rather than writing infrastructure files manually, the generator reads [dtt.yaml](file:///Users/kevmoo/github/kevmoo/dart_terraform_triggers/dtt.yaml) and outputs declarative resources in `terraform/`:
+Rather than writing infrastructure files manually, the generator reads [dtt.yaml](../dtt.yaml) and outputs declarative resources in `terraform/`:
 
-- **Main Config**: [terraform/main.tf](file:///Users/kevmoo/github/kevmoo/dart_terraform_triggers/terraform/main.tf)
-- **Variable Defs**: [terraform/variables.tf](file:///Users/kevmoo/github/kevmoo/dart_terraform_triggers/terraform/variables.tf)
-- **Output Metrics**: [terraform/outputs.tf](file:///Users/kevmoo/github/kevmoo/dart_terraform_triggers/terraform/outputs.tf)
+- **Main Config**: [terraform/main.tf](../terraform/main.tf)
+- **Variable Defs**: [terraform/variables.tf](../terraform/variables.tf)
+- **Output Metrics**: [terraform/outputs.tf](../terraform/outputs.tf)
 
 Below is an illustration of the generated declarative resource blocks inside `terraform/main.tf` mapping our target service, secure IAM service agents, and triggers:
 
