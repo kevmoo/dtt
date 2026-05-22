@@ -14,10 +14,8 @@ void main() async {
       path: '/events/users',
       handler: onUserWritten,
     );
-
   final pipeline = const Pipeline()
       .addMiddleware(logRequests())
       .addHandler(router.handle);
-
   await serveHandler(pipeline);
 }

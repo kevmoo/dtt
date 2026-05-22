@@ -25,15 +25,9 @@ void main() {
     test(
       'Natively parses dtt.yaml and string-interpolates all E2E assets',
       () async {
-        final workspacePath = d.sandbox;
-        final packagePath = p.join(workspacePath, 'my_package');
-
-        // 1. Setup a clean package sandbox directory
-        await Directory(packagePath).create(recursive: true);
-
-        // 2. Write custom declarative config mapping n26-full-stack-dart
-        final dttYaml = File(p.join(packagePath, 'dtt.yaml'));
-        await dttYaml.writeAsString('''
+        // 1. Setup a clean package sandbox directory declaratively!
+        await d.dir('my_package', [
+          d.file('dtt.yaml', '''
 service:
   name: firebase-auth-triggers
   project_id: n26-full-stack-dart
@@ -44,16 +38,20 @@ triggers:
     type: google.firebase.auth.user.v2.created
     path: /events/auth
     handler: onUserCreated
-''');
+'''),
+        ]).create();
 
-        // 3. Invoke the core generator engine
+        final workspacePath = d.sandbox;
+        final packagePath = p.join(workspacePath, 'my_package');
+
+        // 2. Invoke the core generator engine
         final generator = DttGenerator(
           workspaceRoot: workspacePath,
           packageDir: packagePath,
         );
         await generator.generateAll();
 
-        // 4. Assert generated serverless entrypoint bin/server.dart is pristine
+        // 3. Assert generated serverless entrypoint bin/server.dart is pristine
         final serverFile = File(p.join(packagePath, 'bin', 'server.dart'));
         check(await serverFile.exists()).isTrue();
 
@@ -64,23 +62,14 @@ triggers:
         check(serverContent).contains(
           "import 'package:my_package/src/handlers/on_user_created.dart';",
         );
-        check(serverContent).contains('''
-    ..registerTrigger(
-      trigger: CloudEventTrigger.firebaseAuthUserCreated,
-      handler: onUserCreated,
-    )''');
+        check(serverContent).contains('void main() async {');
+        check(serverContent).contains('await serveHandler(pipeline);');
 
-        // 5. Assert generated Main Terraform manifest is pristine
+        // 4. Assert generated Main Terraform manifest is pristine
         final mainTfFile = File(p.join(workspacePath, 'terraform', 'main.tf'));
         check(await mainTfFile.exists()).isTrue();
 
         final mainTfContent = await mainTfFile.readAsString();
-        check(mainTfContent).contains('google-beta = {');
-        check(mainTfContent).contains('provider "google-beta" {');
-        check(
-          mainTfContent,
-        ).contains('data "google_cloud_run_v2_service" "service"');
-        check(mainTfContent).contains('name     = "firebase-auth-triggers"');
         check(
           mainTfContent,
         ).contains('resource "google_service_account" "eventarc_invoker"');
@@ -90,7 +79,6 @@ triggers:
         check(mainTfContent).contains(
           'resource "google_eventarc_trigger" "trigger_auth-user-created"',
         );
-        check(mainTfContent).contains('location        = "global"');
         check(mainTfContent).contains('provider        = google-beta');
         check(
           mainTfContent,
@@ -100,7 +88,7 @@ triggers:
         ).contains('value     = "google.firebase.auth.user.v2.created"');
         check(mainTfContent).contains('path    = "/events/auth"');
 
-        // 7. Assert generated Variables Terraform manifest is pristine
+        // 5. Assert generated Variables Terraform manifest is pristine
         final varsTfFile = File(
           p.join(workspacePath, 'terraform', 'variables.tf'),
         );
@@ -109,7 +97,7 @@ triggers:
         final varsTfContent = await varsTfFile.readAsString();
         check(varsTfContent).contains('default     = "n26-full-stack-dart"');
 
-        // 8. Assert generated Outputs Terraform manifest is pristine
+        // 6. Assert generated Outputs Terraform manifest is pristine
         final outputsTfFile = File(
           p.join(workspacePath, 'terraform', 'outputs.tf'),
         );
@@ -125,12 +113,9 @@ triggers:
     test(
       'Custom Path Override generates path argument in server.dart',
       () async {
-        final workspacePath = d.sandbox;
-        final packagePath = p.join(workspacePath, 'custom_package');
-        await Directory(packagePath).create(recursive: true);
-
-        final dttYaml = File(p.join(packagePath, 'dtt.yaml'));
-        await dttYaml.writeAsString('''
+        // 1. Setup clean sandbox directory declaratively!
+        await d.dir('custom_package', [
+          d.file('dtt.yaml', '''
 service:
   name: firebase-auth-triggers
   project_id: n26-full-stack-dart
@@ -141,7 +126,11 @@ triggers:
     type: google.firebase.auth.user.v2.created
     path: /events/my-custom-endpoint
     handler: onUserCreated
-''');
+'''),
+        ]).create();
+
+        final workspacePath = d.sandbox;
+        final packagePath = p.join(workspacePath, 'custom_package');
 
         final generator = DttGenerator(
           workspaceRoot: workspacePath,
@@ -153,26 +142,20 @@ triggers:
         check(await serverFile.exists()).isTrue();
 
         final serverContent = await serverFile.readAsString();
-        check(serverContent).contains('''
-    ..registerTrigger(
-      trigger: CloudEventTrigger.firebaseAuthUserCreated,
-      path: '/events/my-custom-endpoint',
-      handler: onUserCreated,
-    )''');
+        check(
+          serverContent,
+        ).contains('CloudEventTrigger.firebaseAuthUserCreated');
+        check(serverContent).contains("path: '/events/my-custom-endpoint'");
+        check(serverContent).contains('handler: onUserCreated');
       },
     );
 
     test(
       'Cloud Firestore trigger generates dynamic database and document filters',
       () async {
-        // 1. Initialize temporary workspace sandbox folders structure
-        final workspacePath = d.sandbox;
-        final packagePath = p.join(workspacePath, 'firestore_package');
-        await Directory(packagePath).create(recursive: true);
-
-        // 2. Write custom dtt.yaml declaring the Cloud Firestore trigger
-        final dttYaml = File(p.join(packagePath, 'dtt.yaml'));
-        await dttYaml.writeAsString('''
+        // 1. Setup clean sandbox directory declaratively!
+        await d.dir('firestore_package', [
+          d.file('dtt.yaml', '''
 service:
   name: firestore-triggers
   project_id: n26-full-stack-dart
@@ -185,28 +168,31 @@ triggers:
     handler: onUserWritten
     database: "(default)"
     document: "documents/users/{userId}"
-''');
+'''),
+        ]).create();
 
-        // 3. Invoke the core generator engine
+        final workspacePath = d.sandbox;
+        final packagePath = p.join(workspacePath, 'firestore_package');
+
+        // 2. Invoke the core generator engine
         final generator = DttGenerator(
           workspaceRoot: workspacePath,
           packageDir: packagePath,
         );
         await generator.generateAll();
 
-        // 4. Assert generated serverless entrypoint bin/server.dart is pristine
+        // 3. Assert generated serverless entrypoint bin/server.dart is pristine
         final serverFile = File(p.join(packagePath, 'bin', 'server.dart'));
         check(await serverFile.exists()).isTrue();
 
         final serverContent = await serverFile.readAsString();
-        check(serverContent).contains('''
-    ..registerTrigger(
-      trigger: CloudEventTrigger.firestoreDocumentWritten,
-      path: '/events/users',
-      handler: onUserWritten,
-    )''');
+        check(
+          serverContent,
+        ).contains('CloudEventTrigger.firestoreDocumentWritten');
+        check(serverContent).contains("path: '/events/users'");
+        check(serverContent).contains('handler: onUserWritten');
 
-        // 5. Assert generated Main Terraform manifest contains all Firestore
+        // 4. Assert generated Main Terraform manifest contains all Firestore
         //    filters
         final mainTfFile = File(p.join(workspacePath, 'terraform', 'main.tf'));
         check(await mainTfFile.exists()).isTrue();

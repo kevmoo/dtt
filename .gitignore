@@ -1,2 +1,9 @@
 .dart_tool
 pubspec.lock
+
+# Terraform transient caches & states
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+crash.log
