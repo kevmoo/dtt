@@ -1,6 +1,6 @@
 # Architectural Evaluation & Proposal: Firebase Functions Integration
 
-![Firebase Functions Integration Banner](../assets/project_banner.png)
+![Firebase Functions Integration Banner](assets/project_banner.png)
 
 This document presents a technical critique and systems evaluation comparing the [firebase-functions-dart](https://github.com/firebase/firebase-functions-dart) repository against our proposed `dart_terraform_triggers` (`dtt`) vision. 
 
@@ -100,14 +100,14 @@ This allows `dtt` to establish:
 
 ---
 
-## 4. Architectural Synthesis
+## 4. Architectural Synthesis & Rationale
 
-We present two clear "Thought" implementation structures inside [firebase_functions_compare/](.):
+We evaluated two primary paradigm integration paths for backend triggers:
 
-1.  **Thought 1: The Firebase Paradigm (Option A)**
-    - Represents the builder-centric, multi-namespace, path-routed model defined by `firebase-functions-dart`. 
-    - Highlights how HTTP triggers are deployed, and displays the heavy boilerplate mapping of static wildcard routers.
-2.  **Thought 2: The Terraform Paradigm (Option B - Recommended)**
+1.  **Paradigm 1: The Firebase Paradigm (Option A)**
+    - Emulates the builder-centric, multi-namespace, path-routed model defined by `firebase-functions-dart`. 
+    - Registers triggers via a global functional registry, but locks background triggers (Firestore, Storage) out of production due to Cloud Run OIDC signature validation gaps inside the Node-centric Firebase CLI environment.
+2.  **Paradigm 2: The GCP/Terraform Paradigm (Option B - Recommended)**
     - Represents the lean, declarative, high-performance architecture of `dtt`.
-    - Leverages our dynamic CDN protobuf compilation engine and direct, zero-reflection static Shelf routers.
-    - Resolves production background triggers (like Storage finalized events) instantly via secure, minimum-privilege Terraform manifests.
+    - Bypasses annotation builders entirely, compiles Protobuf event schemas dynamically from source, routes webhooks using zero-reflection static Shelf servers wrapping `google_cloud_shelf`, and provisions target serverless resources natively using highly secure, minimum-privilege Terraform manifests.
+    - Delivers full background trigger support in production out-of-the-box.
