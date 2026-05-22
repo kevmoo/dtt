@@ -1,0 +1,21 @@
+name: _integration_test
+description: "Hermetic vertical end-to-end integration webhook testing suite for dtt and dtt_runtime."
+version: 0.1.0-wip
+publish_to: none # Local test container package, never publish to pub.dev
+
+environment:
+  sdk: ^3.12.0
+
+resolution: workspace
+
+dependencies:
+  checks: ^0.3.1
+  dtt_runtime:
+    path: ../packages/dtt_runtime
+  fixnum: ^1.1.0
+  google_cloud_events:
+    path: ../packages/google_cloud_events
+  http: ^1.6.0
+  protobuf: ^6.0.0
+  shelf: ^1.4.0
+  test: ^1.25.8

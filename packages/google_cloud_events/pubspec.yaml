@@ -8,4 +8,5 @@ environment:
 resolution: workspace
 
 dependencies:
+  fixnum: ^1.1.0
   protobuf: ^6.0.0
