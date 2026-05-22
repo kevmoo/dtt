@@ -184,7 +184,7 @@ triggers:
     path: /events/users
     handler: onUserWritten
     database: "(default)"
-    document: "documents/users/*"
+    document: "documents/users/{userId}"
 ''');
 
         // 3. Invoke the core generator engine
@@ -222,7 +222,7 @@ triggers:
         check(mainTfContent).contains('attribute = "database"');
         check(mainTfContent).contains('value     = "(default)"');
         check(mainTfContent).contains('attribute = "document"');
-        check(mainTfContent).contains('value     = "documents/users/*"');
+        check(mainTfContent).contains('value     = "documents/users/{userId}"');
         check(mainTfContent).contains(
           'resource "google_project_iam_member" "firestore_pubsub_publisher"',
         );

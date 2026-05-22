@@ -297,18 +297,11 @@ class DttGenerator {
 
     // Block 3.1: Dynamic Project Data Source lookup (needed for project
     //            number!)
-    if (hasFirestore) {
-      // Block 3.1: Dynamic Project Data Source lookup (needed for project
-      //            number!)
-      final projectData =
-          HclBlock(
-            type: 'data',
-            labels: const <String>['google_project', 'project'],
-          )..comment(
-            'Retrieve live project metadata for Service Agent referencing',
-          );
-      mainFile.addBlock(projectData);
-    }
+    final projectData = HclBlock(
+      type: 'data',
+      labels: const <String>['google_project', 'project'],
+    )..comment('Retrieve live project metadata for Service Agent referencing');
+    mainFile.addBlock(projectData);
 
     // Block 4: Zero-Trust minimum privilege service account mapping
     final serviceAccount =
@@ -439,6 +432,37 @@ class DttGenerator {
             );
       mainFile.addBlock(allServicesAudit);
     }
+
+    // Block 6.3: Grant Token Creator role to Pub/Sub Service Agent on Custom SA
+    final pubsubTokenCreator =
+        HclBlock(
+            type: 'resource',
+            labels: const <String>[
+              'google_service_account_iam_member',
+              'pubsub_token_creator',
+            ],
+          )
+          ..comment(
+            'Grant Pub/Sub Service Agent permissions to generate OIDC tokens '
+            'under our Custom SA',
+          )
+          ..attribute(
+            'service_account_id',
+            const HclValue.raw('google_service_account.eventarc_invoker.name'),
+          )
+          ..attribute(
+            'role',
+            const HclValue.string('roles/iam.serviceAccountTokenCreator'),
+          )
+          ..attribute(
+            'member',
+            const HclValue.string(
+              'serviceAccount:service-'
+              r'${data.google_project.project.number}'
+              '@gcp-sa-pubsub.iam.gserviceaccount.com',
+            ),
+          );
+    mainFile.addBlock(pubsubTokenCreator);
 
     // Block 7: Dynamically append Google Eventarc trigger resource blocks
     for (final trigger in triggers) {

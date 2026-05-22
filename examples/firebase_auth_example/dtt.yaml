@@ -25,4 +25,4 @@ triggers:
     path: /events/users
     handler: onUserWritten
     database: "(default)"
-    document: "documents/users/*"
+    document: "documents/users/{userId}"

@@ -75,6 +75,13 @@ resource "google_project_iam_audit_config" "all_services_audit" {
   }
 }
 
+# Grant Pub/Sub Service Agent permissions to generate OIDC tokens under our Custom SA
+resource "google_service_account_iam_member" "pubsub_token_creator" {
+  service_account_id = google_service_account.eventarc_invoker.name
+  role               = "roles/iam.serviceAccountTokenCreator"
+  member             = "serviceAccount:service-${data.google_project.project.number}@gcp-sa-pubsub.iam.gserviceaccount.com"
+}
+
 # GCP Eventarc Trigger Mapping signals: user-written
 resource "google_eventarc_trigger" "trigger_user-written" {
   name                    = "firestore-triggers-user-written-trigger"
@@ -102,6 +109,6 @@ resource "google_eventarc_trigger" "trigger_user-written" {
 
   matching_criteria {
     attribute = "document"
-    value     = "documents/users/*"
+    value     = "documents/users/{userId}"
   }
 }
