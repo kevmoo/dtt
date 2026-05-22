@@ -1,0 +1,11 @@
+name: google_cloud_events
+description: "Pre-compiled Dart Protobuf classes representing the official GCP Eventarc CloudEvents specification catalog."
+version: 0.1.0-wip
+
+environment:
+  sdk: ^3.12.0
+
+resolution: workspace
+
+dependencies:
+  protobuf: ^6.0.0

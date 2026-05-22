@@ -1,0 +1,14 @@
+name: dtt
+description: "Developer CLI tool for scaffolding, configuring, and deploying serverless Dart Eventarc trigger Cloud Run services."
+version: 0.1.0-wip
+
+environment:
+  sdk: ^3.12.0
+
+resolution: workspace
+
+dependencies:
+  args: ^2.5.0
+  http: ^1.6.0
+  path: ^1.9.0
+  yaml: ^3.1.2
