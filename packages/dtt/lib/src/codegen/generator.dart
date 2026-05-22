@@ -25,12 +25,18 @@ class TriggerTypeMeta {
   final String className;
   final String enumName;
   final String defaultPath;
+  final bool isGlobal;
+  final String? triggerLocation;
+  final String? eventDataContentType;
 
   const TriggerTypeMeta({
     required this.importPath,
     required this.className,
     required this.enumName,
     required this.defaultPath,
+    this.isGlobal = false,
+    this.triggerLocation,
+    this.eventDataContentType,
   });
 }
 
@@ -43,12 +49,23 @@ const Map<String, TriggerTypeMeta> _typeCatalog = {
     enumName: 'CloudEventTrigger.gcsObjectFinalized',
     defaultPath: '/events/uploads',
   ),
-  'google.firebase.auth.user.v1.created': TriggerTypeMeta(
+  'google.firebase.auth.user.v2.created': TriggerTypeMeta(
     importPath:
         'package:google_cloud_events/google/events/firebase/auth/v1/data.pb.dart',
     className: 'AuthEventData',
     enumName: 'CloudEventTrigger.firebaseAuthUserCreated',
     defaultPath: '/events/auth',
+    isGlobal: true,
+    triggerLocation: 'global',
+  ),
+  'google.cloud.firestore.document.v1.written': TriggerTypeMeta(
+    importPath:
+        'package:protobuf/well_known_types/google/protobuf/struct.pb.dart',
+    className: 'Struct',
+    enumName: 'CloudEventTrigger.firestoreDocumentWritten',
+    defaultPath: '/events/firestore',
+    triggerLocation: 'nam5',
+    eventDataContentType: 'application/protobuf',
   ),
 };
 
@@ -99,12 +116,19 @@ class DttGenerator {
         'path': final String path,
         'handler': final String handler,
       }) {
-        triggers.add({
+        final triggerMap = <String, String>{
           'name': name,
           'type': type,
           'path': path,
           'handler': handler,
-        });
+        };
+        if (node.containsKey('database')) {
+          triggerMap['database'] = node['database'] as String;
+        }
+        if (node.containsKey('document')) {
+          triggerMap['document'] = node['document'] as String;
+        }
+        triggers.add(triggerMap);
       } else {
         throw const FormatException(
           'Trigger mappings must specify name, type, path, and handler '
@@ -210,6 +234,16 @@ class DttGenerator {
       await tfDir.create(recursive: true);
     }
 
+    final hasFirestore = triggers.any(
+      (t) => t['type'] == 'google.cloud.firestore.document.v1.written',
+    );
+
+    // Dynamic truncated SA ID resolving GCP's strict 30-character limit!
+    final saSuffix = serviceName.length > 15
+        ? serviceName.substring(0, 15)
+        : serviceName;
+    final saAccountId = 'dtt-$saSuffix-inv';
+
     // 1. Synthesize terraform/main.tf using the HCL Writer DSL!
     final mainFile = HclFile();
 
@@ -217,158 +251,66 @@ class DttGenerator {
     final tfConfig = HclBlock(type: 'terraform')
       ..attribute('required_version', const HclValue.string('>= 1.3.0'))
       ..addBlock(
-        HclBlock(type: 'required_providers')..addBlock(
-          HclBlock(type: 'google')
-            ..attribute('source', const HclValue.string('hashicorp/google'))
-            ..attribute('version', const HclValue.string('>= 5.0.0')),
-        ),
+        HclBlock(type: 'required_providers')
+          ..attribute(
+            'google',
+            const HclValue.map(<String, HclValue>{
+              'source': HclValue.string('hashicorp/google'),
+              'version': HclValue.string('>= 5.0.0'),
+            }),
+          )
+          ..attribute(
+            'google-beta',
+            const HclValue.map(<String, HclValue>{
+              'source': HclValue.string('hashicorp/google-beta'),
+              'version': HclValue.string('>= 5.0.0'),
+            }),
+          ),
       );
     mainFile.addBlock(tfConfig);
 
-    // Block 2: Provider google block
+    // Block 2: Provider google blocks
     final provider =
         HclBlock(type: 'provider', labels: const <String>['google'])
           ..attribute('project', const HclValue.raw('var.project_id'))
           ..attribute('region', const HclValue.raw('var.region'));
     mainFile.addBlock(provider);
 
-    // Block 3: Zip archiver data source
-    final archiveData =
+    final providerBeta =
+        HclBlock(type: 'provider', labels: const <String>['google-beta'])
+          ..attribute('project', const HclValue.raw('var.project_id'))
+          ..attribute('region', const HclValue.raw('var.region'));
+    mainFile.addBlock(providerBeta);
+
+    // Block 3: Dynamic Cloud Run Service Data Source lookup!
+    final serviceData =
         HclBlock(
             type: 'data',
-            labels: const <String>['archive_file', 'source_zip'],
-          )
-          ..comment(
-            'Natively compresses the local workspace source directories '
-            'automatically!',
-          )
-          ..attribute('type', const HclValue.string('zip'))
-          ..attribute('source_dir', const HclValue.string('\${path.module}/..'))
-          ..attribute(
-            'output_path',
-            const HclValue.string('\${path.module}/source.zip'),
-          )
-          ..attribute(
-            'excludes',
-            const HclValue.list(<HclValue>[
-              HclValue.string('.dart_tool'),
-              HclValue.string('.git'),
-              HclValue.string('build'),
-              HclValue.string('terraform'),
-              HclValue.string('docs'),
-            ]),
-          );
-    mainFile.addBlock(archiveData);
-
-    // Block 4: Private GCS sources bucket
-    final bucket =
-        HclBlock(
-            type: 'resource',
-            labels: const <String>['google_storage_bucket', 'sources'],
-          )
-          ..comment(
-            'Secure private GCS bucket storing transient code zip archives',
-          )
-          ..attribute(
-            'name',
-            const HclValue.string('\${var.project_id}-dtt-sources'),
-          )
-          ..attribute('location', const HclValue.raw('var.region'))
-          ..attribute('force_destroy', const HclValue.boolean(true));
-    mainFile.addBlock(bucket);
-
-    // Block 5: Zip object uploader resource
-    final uploadObject =
-        HclBlock(
-            type: 'resource',
-            labels: const <String>['google_storage_bucket_object', 'archive'],
-          )
-          ..comment(
-            'Uploads the compressed local workspace zip file straight to GCS',
-          )
-          ..attribute(
-            'name',
-            const HclValue.string(
-              'source-\${data.archive_file.source_zip.output_md5}.zip',
-            ),
-          )
-          ..attribute(
-            'bucket',
-            const HclValue.raw('google_storage_bucket.sources.name'),
-          )
-          ..attribute(
-            'source',
-            const HclValue.raw('data.archive_file.source_zip.output_path'),
-          );
-    mainFile.addBlock(uploadObject);
-
-    // Block 6: Google Cloud Run Service with build_config
-    final service =
-        HclBlock(
-            type: 'resource',
             labels: const <String>['google_cloud_run_v2_service', 'service'],
           )
-          ..comment('Google Cloud Run Service with native buildpack builds!')
+          ..comment(
+            'Retrieve live metadata of our pre-deployed OS-only service',
+          )
           ..attribute('name', HclValue.string(serviceName))
-          ..attribute('location', const HclValue.raw('var.region'))
-          ..attribute(
-            'ingress',
-            const HclValue.string('INGRESS_TRAFFIC_INTERNAL_ONLY'),
+          ..attribute('location', const HclValue.raw('var.region'));
+    mainFile.addBlock(serviceData);
+
+    // Block 3.1: Dynamic Project Data Source lookup (needed for project
+    //            number!)
+    if (hasFirestore) {
+      // Block 3.1: Dynamic Project Data Source lookup (needed for project
+      //            number!)
+      final projectData =
+          HclBlock(
+            type: 'data',
+            labels: const <String>['google_project', 'project'],
+          )..comment(
+            'Retrieve live project metadata for Service Agent referencing',
           );
+      mainFile.addBlock(projectData);
+    }
 
-    // Nested blocks under Cloud Run service template definition
-    final ports = HclBlock(type: 'ports')
-      ..attribute('container_port', const HclValue.number(8080));
-
-    final limits = HclBlock(type: 'limits')
-      ..attribute('cpu', const HclValue.string('1'))
-      ..attribute('memory', const HclValue.string('512Mi'));
-
-    final resources = HclBlock(type: 'resources')..addBlock(limits);
-
-    final containers = HclBlock(type: 'containers')
-      ..attribute(
-        'image',
-        HclValue.string(
-          'us-central1-docker.pkg.dev/\${var.project_id}/'
-          'cloud-run-images/$serviceName:latest',
-        ),
-      )
-      ..addBlock(ports)
-      ..addBlock(resources);
-
-    final template = HclBlock(type: 'template')..addBlock(containers);
-
-    // Dynamic build configuration block compiling from GCS!
-    final storageSource = HclBlock(type: 'storage_source')
-      ..attribute(
-        'bucket',
-        const HclValue.raw('google_storage_bucket.sources.name'),
-      )
-      ..attribute(
-        'object',
-        const HclValue.raw('google_storage_bucket_object.archive.name'),
-      );
-
-    final sourcePackage = HclBlock(type: 'source_package')
-      ..addBlock(storageSource);
-
-    final buildConfig = HclBlock(type: 'build_config')
-      ..attribute(
-        'image_uri',
-        HclValue.string(
-          'us-central1-docker.pkg.dev/\${var.project_id}/'
-          'cloud-run-images/$serviceName:latest',
-        ),
-      )
-      ..addBlock(sourcePackage);
-
-    service
-      ..addBlock(template)
-      ..addBlock(buildConfig);
-    mainFile.addBlock(service);
-
-    // Block 7: Zero-Trust minimum privilege service account mapping
+    // Block 4: Zero-Trust minimum privilege service account mapping
     final serviceAccount =
         HclBlock(
             type: 'resource',
@@ -378,17 +320,14 @@ class DttGenerator {
             ],
           )
           ..comment('Zero-Trust minimum privilege service account mapping')
-          ..attribute(
-            'account_id',
-            HclValue.string('eventarc-$serviceName-invoker'),
-          )
+          ..attribute('account_id', HclValue.string(saAccountId))
           ..attribute(
             'display_name',
             HclValue.string('Eventarc $serviceName Invoker Service Account'),
           );
     mainFile.addBlock(serviceAccount);
 
-    // Block 8: Grant Invoker Service Account authorization to call Cloud Run
+    // Block 5: Grant Invoker Service Account authorization to call Cloud Run
     final iamMember =
         HclBlock(
             type: 'resource',
@@ -403,11 +342,13 @@ class DttGenerator {
           )
           ..attribute(
             'name',
-            const HclValue.raw('google_cloud_run_v2_service.service.name'),
+            const HclValue.raw('data.google_cloud_run_v2_service.service.name'),
           )
           ..attribute(
             'location',
-            const HclValue.raw('google_cloud_run_v2_service.service.location'),
+            const HclValue.raw(
+              'data.google_cloud_run_v2_service.service.location',
+            ),
           )
           ..attribute('role', const HclValue.string('roles/run.invoker'))
           ..attribute(
@@ -419,7 +360,7 @@ class DttGenerator {
           );
     mainFile.addBlock(iamMember);
 
-    // Block 9: Bind Eventarc Receiver permissions to service agent profiles
+    // Block 6: Bind Eventarc Receiver permissions to service agent profiles
     final iamReceiver =
         HclBlock(
             type: 'resource',
@@ -446,11 +387,75 @@ class DttGenerator {
           );
     mainFile.addBlock(iamReceiver);
 
-    // Block 10: Dynamically append Google Eventarc trigger resource blocks
+    // Block 6.1: Grant Pub/Sub Publisher role to Firestore Service Agent!
+    if (hasFirestore) {
+      final firestorePublisher =
+          HclBlock(
+              type: 'resource',
+              labels: const <String>[
+                'google_project_iam_member',
+                'firestore_pubsub_publisher',
+              ],
+            )
+            ..comment(
+              'Grant Cloud Firestore Service Agent permissions to publish to '
+              'transport topics',
+            )
+            ..attribute('project', const HclValue.raw('var.project_id'))
+            ..attribute('role', const HclValue.string('roles/pubsub.publisher'))
+            ..attribute(
+              'member',
+              const HclValue.string(
+                'serviceAccount:service-'
+                r'${data.google_project.project.number}'
+                '@gcp-sa-firestore.iam.gserviceaccount.com',
+              ),
+            );
+      mainFile.addBlock(firestorePublisher);
+
+      // Block 6.2: Enable Project-Wide Data Access Audit Logs for All Services
+      //            (including Native Firestore!).
+      final allServicesAudit =
+          HclBlock(
+              type: 'resource',
+              labels: const <String>[
+                'google_project_iam_audit_config',
+                'all_services_audit',
+              ],
+            )
+            ..comment(
+              'Enable Project-Wide Data Access Audit Logs for all services to '
+              'forward triggers event signals',
+            )
+            ..attribute('project', const HclValue.raw('var.project_id'))
+            ..attribute('service', const HclValue.string('allServices'))
+            ..addBlock(
+              HclBlock(type: 'audit_log_config')
+                ..attribute('log_type', const HclValue.string('DATA_WRITE')),
+            )
+            ..addBlock(
+              HclBlock(type: 'audit_log_config')
+                ..attribute('log_type', const HclValue.string('DATA_READ')),
+            );
+      mainFile.addBlock(allServicesAudit);
+    }
+
+    // Block 7: Dynamically append Google Eventarc trigger resource blocks
     for (final trigger in triggers) {
       final name = trigger['name']!;
       final type = trigger['type']!;
       final path = trigger['path']!;
+
+      final meta = _typeCatalog[type];
+      final isGlobal = meta != null && meta.isGlobal;
+
+      // Dynamically resolve trigger location region coordinates!
+      final HclValue triggerLocationVal;
+      if (meta != null && meta.triggerLocation != null) {
+        triggerLocationVal = HclValue.string(meta.triggerLocation!);
+      } else {
+        triggerLocationVal = const HclValue.raw('var.region');
+      }
 
       final triggerBlock =
           HclBlock(
@@ -459,18 +464,28 @@ class DttGenerator {
             )
             ..comment('GCP Eventarc Trigger Mapping signals: $name')
             ..attribute('name', HclValue.string('$serviceName-$name-trigger'))
-            ..attribute('location', const HclValue.raw('var.region'))
-            ..attribute(
-              'service_account',
-              const HclValue.raw(
-                'google_service_account.eventarc_invoker.email',
-              ),
-            );
+            ..attribute('location', triggerLocationVal);
+
+      if (isGlobal) {
+        triggerBlock.attribute('provider', const HclValue.raw('google-beta'));
+      }
+
+      if (meta != null && meta.eventDataContentType != null) {
+        triggerBlock.attribute(
+          'event_data_content_type',
+          HclValue.string(meta.eventDataContentType!),
+        );
+      }
+
+      triggerBlock.attribute(
+        'service_account',
+        const HclValue.raw('google_service_account.eventarc_invoker.email'),
+      );
 
       final cloudRunService = HclBlock(type: 'cloud_run_service')
         ..attribute(
           'service',
-          const HclValue.raw('google_cloud_run_v2_service.service.name'),
+          const HclValue.raw('data.google_cloud_run_v2_service.service.name'),
         )
         ..attribute('region', const HclValue.raw('var.region'))
         ..attribute('path', HclValue.string(path));
@@ -478,13 +493,31 @@ class DttGenerator {
       final destination = HclBlock(type: 'destination')
         ..addBlock(cloudRunService);
 
-      final criteria = HclBlock(type: 'matching_criteria')
-        ..attribute('attribute', const HclValue.string('type'))
-        ..attribute('value', HclValue.string(type));
+      final criteriaList = [
+        HclBlock(type: 'matching_criteria')
+          ..attribute('attribute', const HclValue.string('type'))
+          ..attribute('value', HclValue.string(type)),
+      ];
 
-      triggerBlock
-        ..addBlock(destination)
-        ..addBlock(criteria);
+      if (trigger.containsKey('database')) {
+        criteriaList.add(
+          HclBlock(type: 'matching_criteria')
+            ..attribute('attribute', const HclValue.string('database'))
+            ..attribute('value', HclValue.string(trigger['database']!)),
+        );
+      }
+      if (trigger.containsKey('document')) {
+        criteriaList.add(
+          HclBlock(type: 'matching_criteria')
+            ..attribute('attribute', const HclValue.string('document'))
+            ..attribute('value', HclValue.string(trigger['document']!)),
+        );
+      }
+
+      triggerBlock.addBlock(destination);
+      for (final criteria in criteriaList) {
+        triggerBlock.addBlock(criteria);
+      }
       mainFile.addBlock(triggerBlock);
     }
 
@@ -526,7 +559,7 @@ class DttGenerator {
         HclBlock(type: 'output', labels: const <String>['service_url'])
           ..attribute(
             'value',
-            const HclValue.raw('google_cloud_run_v2_service.service.uri'),
+            const HclValue.raw('data.google_cloud_run_v2_service.service.uri'),
           )
           ..attribute(
             'description',
@@ -537,14 +570,15 @@ class DttGenerator {
           );
     outputsFile.addBlock(outputUrl);
 
+    final triggerRefs = <HclValue>[];
+    for (final trigger in triggers) {
+      final name = trigger['name']!;
+      triggerRefs.add(HclValue.raw('google_eventarc_trigger.trigger_$name.id'));
+    }
+
     final outputTriggers =
         HclBlock(type: 'output', labels: const <String>['eventarc_trigger_ids'])
-          ..attribute(
-            'value',
-            const HclValue.raw(
-              '[\n    for t in google_eventarc_trigger.trigger_* : t.id\n  ]',
-            ),
-          )
+          ..attribute('value', HclValue.list(triggerRefs))
           ..attribute(
             'description',
             const HclValue.string(

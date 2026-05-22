@@ -41,7 +41,7 @@ service:
 
 triggers:
   - name: auth-user-created
-    type: google.firebase.auth.user.v1.created
+    type: google.firebase.auth.user.v2.created
     path: /events/auth
     handler: onUserCreated
 ''');
@@ -75,31 +75,29 @@ triggers:
         check(await mainTfFile.exists()).isTrue();
 
         final mainTfContent = await mainTfFile.readAsString();
+        check(mainTfContent).contains('google-beta = {');
+        check(mainTfContent).contains('provider "google-beta" {');
         check(
           mainTfContent,
-        ).contains('resource "google_cloud_run_v2_service" "service"');
+        ).contains('data "google_cloud_run_v2_service" "service"');
         check(mainTfContent).contains('name     = "firebase-auth-triggers"');
-        check(mainTfContent).contains(
-          'image = "us-central1-docker.pkg.dev/\${var.project_id}/cloud-run-images/firebase-auth-triggers:latest"',
-        );
-        check(mainTfContent).contains('build_config {');
-        check(mainTfContent).contains('source_package {');
-        check(mainTfContent).contains('storage_source {');
-        check(
-          mainTfContent,
-        ).contains('bucket = google_storage_bucket.sources.name');
-        check(
-          mainTfContent,
-        ).contains('object = google_storage_bucket_object.archive.name');
         check(
           mainTfContent,
         ).contains('resource "google_service_account" "eventarc_invoker"');
+        check(
+          mainTfContent,
+        ).contains('name     = data.google_cloud_run_v2_service.service.name');
         check(mainTfContent).contains(
           'resource "google_eventarc_trigger" "trigger_auth-user-created"',
         );
+        check(mainTfContent).contains('location        = "global"');
+        check(mainTfContent).contains('provider        = google-beta');
         check(
           mainTfContent,
-        ).contains('value     = "google.firebase.auth.user.v1.created"');
+        ).contains('service = data.google_cloud_run_v2_service.service.name');
+        check(
+          mainTfContent,
+        ).contains('value     = "google.firebase.auth.user.v2.created"');
         check(mainTfContent).contains('path    = "/events/auth"');
 
         // 7. Assert generated Variables Terraform manifest is pristine
@@ -118,9 +116,9 @@ triggers:
         check(await outputsTfFile.exists()).isTrue();
 
         final outputsTfContent = await outputsTfFile.readAsString();
-        check(
-          outputsTfContent,
-        ).contains('value       = google_cloud_run_v2_service.service.uri');
+        check(outputsTfContent).contains(
+          'value       = data.google_cloud_run_v2_service.service.uri',
+        );
       },
     );
 
@@ -140,7 +138,7 @@ service:
 
 triggers:
   - name: auth-user-created
-    type: google.firebase.auth.user.v1.created
+    type: google.firebase.auth.user.v2.created
     path: /events/my-custom-endpoint
     handler: onUserCreated
 ''');
@@ -161,6 +159,79 @@ triggers:
       path: '/events/my-custom-endpoint',
       handler: onUserCreated,
     )''');
+      },
+    );
+
+    test(
+      'Cloud Firestore trigger generates dynamic database and document filters',
+      () async {
+        // 1. Initialize temporary workspace sandbox folders structure
+        final workspacePath = d.sandbox;
+        final packagePath = p.join(workspacePath, 'firestore_package');
+        await Directory(packagePath).create(recursive: true);
+
+        // 2. Write custom dtt.yaml declaring the Cloud Firestore trigger
+        final dttYaml = File(p.join(packagePath, 'dtt.yaml'));
+        await dttYaml.writeAsString('''
+service:
+  name: firestore-triggers
+  project_id: n26-full-stack-dart
+  region: us-central1
+
+triggers:
+  - name: user-written
+    type: google.cloud.firestore.document.v1.written
+    path: /events/users
+    handler: onUserWritten
+    database: "(default)"
+    document: "documents/users/*"
+''');
+
+        // 3. Invoke the core generator engine
+        final generator = DttGenerator(
+          workspaceRoot: workspacePath,
+          packageDir: packagePath,
+        );
+        await generator.generateAll();
+
+        // 4. Assert generated serverless entrypoint bin/server.dart is pristine
+        final serverFile = File(p.join(packagePath, 'bin', 'server.dart'));
+        check(await serverFile.exists()).isTrue();
+
+        final serverContent = await serverFile.readAsString();
+        check(serverContent).contains('''
+    ..registerTrigger(
+      trigger: CloudEventTrigger.firestoreDocumentWritten,
+      path: '/events/users',
+      handler: onUserWritten,
+    )''');
+
+        // 5. Assert generated Main Terraform manifest contains all Firestore
+        //    filters
+        final mainTfFile = File(p.join(workspacePath, 'terraform', 'main.tf'));
+        check(await mainTfFile.exists()).isTrue();
+
+        final mainTfContent = await mainTfFile.readAsString();
+        check(mainTfContent).contains('data "google_project" "project" {');
+        check(
+          mainTfContent,
+        ).contains('resource "google_eventarc_trigger" "trigger_user-written"');
+        check(
+          mainTfContent,
+        ).contains('value     = "google.cloud.firestore.document.v1.written"');
+        check(mainTfContent).contains('attribute = "database"');
+        check(mainTfContent).contains('value     = "(default)"');
+        check(mainTfContent).contains('attribute = "document"');
+        check(mainTfContent).contains('value     = "documents/users/*"');
+        check(mainTfContent).contains(
+          'resource "google_project_iam_member" "firestore_pubsub_publisher"',
+        );
+        check(mainTfContent).contains(
+          'resource "google_project_iam_audit_config" "all_services_audit"',
+        );
+        check(mainTfContent).contains('service = "allServices"');
+        check(mainTfContent).contains('log_type = "DATA_WRITE"');
+        check(mainTfContent).contains('log_type = "DATA_READ"');
       },
     );
   });

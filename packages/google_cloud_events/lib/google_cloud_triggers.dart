@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import 'package:protobuf/protobuf.dart';
+import 'package:protobuf/well_known_types/google/protobuf/struct.pb.dart';
 
 import 'google/events/cloud/storage/v1/data.pb.dart';
 import 'google/events/firebase/auth/v1/data.pb.dart';
@@ -21,16 +22,23 @@ import 'google/events/firebase/auth/v1/data.pb.dart';
 /// triggers.
 /// Conforms to official Eventarc and CloudEvents specifications.
 enum CloudEventTrigger<T extends GeneratedMessage> {
+  /// Triggered when a document is written in Cloud Firestore.
+  firestoreDocumentWritten<Struct>(
+    eventType: 'google.cloud.firestore.document.v1.written',
+    defaultPath: '/events/firestore',
+    create: Struct.create,
+  ),
+
   /// Triggered when a new user is created in Firebase Authentication.
   firebaseAuthUserCreated<AuthEventData>(
-    eventType: 'google.firebase.auth.user.v1.created',
+    eventType: 'google.firebase.auth.user.v2.created',
     defaultPath: '/events/auth',
     create: AuthEventData.create,
   ),
 
   /// Triggered when an existing user is deleted in Firebase Authentication.
   firebaseAuthUserDeleted<AuthEventData>(
-    eventType: 'google.firebase.auth.user.v1.deleted',
+    eventType: 'google.firebase.auth.user.v2.deleted',
     defaultPath: '/events/auth/deleted',
     create: AuthEventData.create,
   ),
