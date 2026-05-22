@@ -18,7 +18,7 @@ import 'dart:io';
 import 'package:checks/checks.dart';
 import 'package:dtt_runtime/cloudevents.dart';
 import 'package:fixnum/fixnum.dart';
-import 'package:google_cloud_events/google/events/cloud/storage/v1/data.pb.dart';
+import 'package:google_cloud_events/google_cloud_events.dart';
 import 'package:http/http.dart' as http;
 import 'package:protobuf/well_known_types/google/protobuf/timestamp.pb.dart';
 import 'package:shelf/shelf.dart';
@@ -35,19 +35,9 @@ void main() {
     setUp(() async {
       receivedEvents = [];
       router = DttEventRouter()
-        ..register<StorageObjectData>(
+        ..registerTrigger(
+          trigger: CloudEventTrigger.gcsObjectFinalized,
           path: '/events/uploads',
-          eventType: 'google.cloud.storage.object.v1.finalized',
-          dataParser: (bytes, contentType) {
-            final isJson = contentType != null && contentType.contains('json');
-            if (isJson) {
-              final jsonMap =
-                  jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>;
-              return StorageObjectData()..mergeFromProto3Json(jsonMap);
-            } else {
-              return StorageObjectData.fromBuffer(bytes);
-            }
-          },
           handler: (event) => receivedEvents.add(event),
         );
 

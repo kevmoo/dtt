@@ -15,7 +15,7 @@
 # Declarative microservice infrastructure configuration
 service:
   name: firebase-auth-triggers
-  project_id: my-firebase-app
+  project_id: n26-full-stack-dart
   region: us-central1
 
 # Infrastructure trigger bindings mapped natively to GCP Eventarc rules

@@ -14,12 +14,17 @@
 
 import 'dart:async';
 import 'dart:convert';
+
 import 'package:async/async.dart';
+import 'package:google_cloud_events/google_cloud_triggers.dart';
+import 'package:protobuf/protobuf.dart';
 import 'package:shelf/shelf.dart';
 
-/// Represents a standardized, type-safe CloudEvent envelope payload context.
+/// Represents a standardized, strongly-typed CloudEvent envelope payload
+/// context.
+///
 /// Conforms fully to the CNCF CloudEvents v1.0 specification.
-class CloudEvent<T> {
+class CloudEvent<T extends GeneratedMessage> {
   /// Unique identifier resolving event dispatch profiles.
   final String id;
 
@@ -58,15 +63,15 @@ class CloudEvent<T> {
 
   /// Dynamically parses an incoming Shelf request webhook.
   /// Seamlessly detects and handles both Binary and Structured formats,
-  /// collecting stream bytes and mapping payloads recursively via [dataParser].
-  static Future<CloudEvent<T>> parse<T>(
+  /// instantiating a blank message template via [create] and merging values.
+  static Future<CloudEvent<T>> parse<T extends GeneratedMessage>(
     Request request,
-    FutureOr<T> Function(List<int> bytes, String? contentType) dataParser,
+    T Function() create,
   ) async {
     final contentType = request.headers['content-type'] ?? '';
+    final isStructured = contentType.contains('application/cloudevents+json');
 
-    // 1. Resolve structured format (envelope inside JSON body)
-    if (contentType.contains('application/cloudevents+json')) {
+    if (isStructured) {
       final bodyStr = await request.readAsString();
       final envelope = jsonDecode(bodyStr) as Map<String, dynamic>;
 
@@ -79,23 +84,21 @@ class CloudEvent<T> {
       final timeStr = envelope['time'] as String?;
       final time = timeStr != null ? DateTime.tryParse(timeStr) : null;
 
-      // Unpack bytes (Structured mode handles base64 strings for binaries)
-      List<int> bytes;
+      // Instantiate blank message template and merge values natively
+      final data = create();
+
       if (envelope.containsKey('data_base64')) {
-        bytes = base64Decode(envelope['data_base64'] as String);
+        final bytes = base64Decode(envelope['data_base64'] as String);
+        data.mergeFromBuffer(bytes);
       } else if (envelope.containsKey('data')) {
         final rawData = envelope['data'];
         if (rawData is String) {
-          bytes = utf8.encode(rawData);
+          data.mergeFromJson(rawData);
         } else {
-          // Standard JSON payload objects encoded back to standard bytes
-          bytes = utf8.encode(jsonEncode(rawData));
+          // Zero-Allocation: map parsed directly without double-serialization!
+          data.mergeFromProto3Json(rawData);
         }
-      } else {
-        bytes = const [];
       }
-
-      final data = await dataParser(bytes, dataContentType);
 
       return CloudEvent<T>(
         id: id,
@@ -109,7 +112,7 @@ class CloudEvent<T> {
       );
     }
 
-    // 2. Resolve binary format (metadata in headers, payload in body)
+    // 2. Resolve binary delivery format (metadata in headers, payload in body)
     final id = request.headers['ce-id'] ?? '';
     final source = request.headers['ce-source'] ?? '';
     final specVersion = request.headers['ce-specversion'] ?? '';
@@ -119,9 +122,16 @@ class CloudEvent<T> {
     final timeStr = request.headers['ce-time'];
     final time = timeStr != null ? DateTime.tryParse(timeStr) : null;
 
-    // Collect stream bytes using high-performance, no-copy collectors buffers
+    final data = create();
     final rawBytes = await collectBytes(request.read());
-    final data = await dataParser(rawBytes, dataContentType);
+
+    final isJson = dataContentType != null && dataContentType.contains('json');
+    if (isJson) {
+      final decodedMap = jsonDecode(utf8.decode(rawBytes));
+      data.mergeFromProto3Json(decodedMap);
+    } else {
+      data.mergeFromBuffer(rawBytes);
+    }
 
     return CloudEvent<T>(
       id: id,
@@ -139,18 +149,33 @@ class CloudEvent<T> {
 /// A lightweight, static, high-performance webserver routing engine
 /// specifically tailored for resolving Eventarc triggers.
 class DttEventRouter {
-  final Map<String, _RouteEntry<dynamic>> _routes = {};
+  final Map<String, _RouteEntry<GeneratedMessage>> _routes = {};
 
   /// Registers a strongly-typed trigger routing mapping path.
-  void register<T>({
+  void register<T extends GeneratedMessage>({
     required String path,
     required String eventType,
-    required FutureOr<T> Function(List<int> bytes, String? contentType)
-    dataParser,
+    required T Function() create,
     required FutureOr<void> Function(CloudEvent<T> event) handler,
   }) {
     final routeKey = _buildRouteKey(path, eventType);
-    _routes[routeKey] = _RouteEntry<T>(dataParser, handler);
+    _routes[routeKey] = _RouteEntry<T>(create, handler);
+  }
+
+  /// Registers a strongly-typed, auto-inferred CloudEvent trigger.
+  /// Mapped to type-safe enum definitions, falling back to the trigger's
+  /// default path.
+  void registerTrigger<T extends GeneratedMessage>({
+    required CloudEventTrigger<T> trigger,
+    String? path,
+    required FutureOr<void> Function(CloudEvent<T> event) handler,
+  }) {
+    register<T>(
+      path: path ?? trigger.defaultPath,
+      eventType: trigger.eventType,
+      create: trigger.create,
+      handler: handler,
+    );
   }
 
   /// Shelf Handler mapping matching path patterns and event types.
@@ -214,14 +239,14 @@ class DttEventRouter {
   String _buildRouteKey(String path, String eventType) => '$path|$eventType';
 }
 
-class _RouteEntry<T> {
-  final FutureOr<T> Function(List<int> bytes, String? contentType) dataParser;
+class _RouteEntry<T extends GeneratedMessage> {
+  final T Function() create;
   final FutureOr<void> Function(CloudEvent<T> event) handler;
 
-  _RouteEntry(this.dataParser, this.handler);
+  _RouteEntry(this.create, this.handler);
 
   Future<void> parseAndExecute(Request request) async {
-    final event = await CloudEvent.parse<T>(request, dataParser);
+    final event = await CloudEvent.parse<T>(request, create);
     await handler(event);
   }
 }
