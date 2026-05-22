@@ -2,7 +2,7 @@
 
 ![Firebase Functions Integration Banner](../assets/project_banner.png)
 
-This document presents a technical critique and systems evaluation comparing the [firebase-functions-dart](../../../../firebase-functions-dart) repository against our proposed `dart_terraform_triggers` (`dtt`) vision. 
+This document presents a technical critique and systems evaluation comparing the [firebase-functions-dart](https://github.com/firebase/firebase-functions-dart) repository against our proposed `dart_terraform_triggers` (`dtt`) vision. 
 
 It details their compiler boundaries, uncovers the technical reasons behind their "Emulator Only" production restrictions for background triggers, and maps how `dtt`'s pure GCP serverless and Terraform deployment path delivers immediate production stability for the complete Google Cloud Events catalog.
 
@@ -10,7 +10,7 @@ It details their compiler boundaries, uncovers the technical reasons behind thei
 
 ## 1. Deconstructing `firebase-functions-dart` Under the Hood
 
-A deep-dive review of the [firebase-functions-dart](../../../../firebase-functions-dart) codebase reveals a sophisticated, highly opinionated system designed specifically to bridge the Google Dart runtime into the Node.js-centric Firebase ecosystem.
+A deep-dive review of the [firebase-functions-dart](https://github.com/firebase/firebase-functions-dart) codebase reveals a sophisticated, highly opinionated system designed specifically to bridge the Google Dart runtime into the Node.js-centric Firebase ecosystem.
 
 ### A. Deploy-Time Architecture (The YAML Spec Protocol)
 Unlike standard Google Cloud developers who deploy resources using Gcloud or Terraform, Firebase developers manage deployments using `firebase-tools` (Firebase CLI). 
@@ -35,9 +35,9 @@ sequenceDiagram
     CLI->>GCF: 7. Dispatches production deployments
 ```
 
-- **Statically Parsing the AST**: Inside [lib/builder.dart](../../../../firebase-functions-dart/lib/builder.dart), the framework imports Dart's official `analyzer` and `source_gen`.
+- **Statically Parsing the AST**: Inside [lib/builder.dart](https://github.com/firebase/firebase-functions-dart/blob/main/lib/builder.dart), the framework imports Dart's official `analyzer` and `source_gen`.
 - It maps active namespace instances statically using `RecursiveAstVisitor` blocks (e.g. `_extractStorageFunction`, `_extractFirestoreFunction`), collecting all declared parameters, memory constraints, and event triggers.
-- **Synthesizing the Manifest**: It compiles the collected endpoints metadata and outputs a standardized deployment schema file named [functions.yaml](../../../../firebase-functions-dart/lib/src/builder/manifest.dart) matching `specVersion: v1alpha1` requirements.
+- **Synthesizing the Manifest**: It compiles the collected endpoints metadata and outputs a standardized deployment schema file named [functions.yaml](https://github.com/firebase/firebase-functions-dart/blob/main/lib/src/builder/manifest.dart) matching `specVersion: v1alpha1` requirements.
 - The Firebase CLI reads `functions.yaml` and deploys the Cloud Run services remotely.
 
 ---
@@ -57,7 +57,7 @@ When deployed in production, Firebase Cloud Functions assigns a specific environ
 ---
 
 ## 2. Uncovering the "Emulator Only" Production Gap
-According to their [official trigger status guide](../../../../firebase-functions-dart/doc/triggers.md):
+According to their [official trigger status guide](https://github.com/firebase/firebase-functions-dart/blob/main/doc/triggers.md):
 - **Production-Ready**: Only HTTPS requests (`onRequest`, `onCall`, `onCallWithData`).
 - **Emulator Only**: Cloud Firestore, Realtime Database, and Cloud Storage triggers!
 - **Experimental / Unsupported**: Pub/Sub, Scheduler, Eventarc, Identity, and Tasks!
@@ -69,7 +69,7 @@ According to their [official trigger status guide](../../../../firebase-function
     However, the dynamic credential handshake and OIDC JWT verification pipeline for non-HTTPS events in Dart is currently incomplete inside the `firebase_functions` production runtime, causing security handshake rejections.
 2.  **The Maintenance Burden of Hand-Coded Schemas**:
     Rather than dynamically compiling schema bindings from raw sources, the `firebase_functions` team **manually hand-coded** every single event model class:
-    - *Example*: [lib/src/storage/storage_object_data.dart](../../../../firebase-functions-dart/lib/src/storage/storage_object_data.dart) contains 226 lines of hand-written Dart variables matching GCP metadata JSON layouts, with custom string-to-DateTime parsing adapters.
+    - *Example*: [lib/src/storage/storage_object_data.dart](https://github.com/firebase/firebase-functions-dart/blob/main/lib/src/storage/storage_object_data.dart) contains 226 lines of hand-written Dart variables matching GCP metadata JSON layouts, with custom string-to-DateTime parsing adapters.
     This hand-coding approach forces a severe maintenance constraint. Whenever GCP updates event variables or introduces a new event signature (like Firebase Alerts or newly exposed Eventarc providers), the developers must hand-code the corresponding Dart classes from scratch before releasing a package update, stalling support.
 
 ---

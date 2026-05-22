@@ -34,9 +34,9 @@ flowchart LR
 
 ### Phase 1: Initialization (`dtt init`)
 Creates the initial directory structure, setting up standard microservice files:
-- [pubspec.yaml](../pubspec.yaml) initialized with required dependencies (`shelf`, `googleapis`, `protobuf`, `args`).
+- [pubspec.yaml](../pubspec.yaml) initialized with standard serverless runtime dependencies (`shelf`, `google_cloud_shelf`, `dtt_runtime`, `google_cloud_events`, `protobuf`).
 - [dtt.yaml](../dtt.yaml) template for project metadata and trigger registrations.
-- [bin/server.dart](../bin/server.dart) standard Shelf HTTP server equipped with the Eventarc routing middleware.
+- [bin/server.dart](../bin/server.dart) standard Shelf HTTP server leveraging `google_cloud_shelf` structured logging and graceful shutdown orchestration, integrated with `dtt_runtime` routing middleware.
 
 ### Phase 2: Adding Triggers (`dtt trigger add`)
 An interactive or declarative command that updates [dtt.yaml](../dtt.yaml):
@@ -144,7 +144,7 @@ To provide type-safety, the code generator implements an automated pipeline reso
 A custom routing framework is layered on top of Dart's standard server infrastructure:
 
 ```dart
-// lib/src/cloudevents.dart
+// packages/dtt_runtime/lib/src/cloudevents.dart
 import 'dart:convert';
 import 'package:shelf/shelf.dart';
 
@@ -211,17 +211,25 @@ The CLI automatically stubs out corresponding typed handlers inside the user's p
 
 ```dart
 // lib/src/handlers/storage_upload_handler.dart
-import 'package:functions_framework/functions_framework.dart';
-import 'package:google_cloudevents/storage_object_data.pb.dart';
-import '../../cloudevents.dart';
+import 'package:google_cloud_events/google/events/cloud/storage/v1/data.pb.dart';
+import 'package:google_cloud_storage/google_cloud_storage.dart';
+import 'package:dtt_runtime/cloudevents.dart';
 
-/// Type-safe callback handling file finalizations in Google Cloud Storage
-void onStorageUpload(CloudEvent<StorageObjectData> event) {
-  final StorageObjectData fileMetadata = event.data;
-  print('Successfully processed file: ${fileMetadata.name}');
-  print('Bucket path: gs://${fileMetadata.bucket}/${fileMetadata.name}');
-  print('Content Type: ${fileMetadata.contentType}');
-  print('Storage class: ${fileMetadata.storageClass}');
+/// Type-safe callback handling file finalizations in Google Cloud Storage.
+/// Leverages upstream extension mappings from package:google_cloud_storage.
+void onStorageUpload(CloudEvent<StorageObjectData> event, StorageClient storage) async {
+  final StorageObjectData eventData = event.data;
+  print('Successfully processed file: ${eventData.name}');
+  
+  // 🌟 ZERO-BOILERPLATE TIGHT INTEGRATION:
+  // Convert event payload attributes naturally into client types!
+  final ObjectInfo metadata = eventData.toObjectInfo();
+  print('Bucket path: gs://${metadata.bucket}/${metadata.name}');
+  print('File Size: ${metadata.size} bytes');
+  
+  // Map standard event targets directly to actionable GCS references
+  final fileRef = eventData.toRef(storage);
+  final fileBytes = await fileRef.read();
 }
 ```
 

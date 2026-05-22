@@ -10,22 +10,25 @@ This document maps the actionable, phase-by-phase implementation schedule to con
 
 **Objective**: Establish the repository framework, package definitions, CLI command router, and local configuration engine.
 
-- [ ] **Task 1.1: Initialize Package Infrastructure**
-  - Draft the core [pubspec.yaml](../pubspec.yaml) configuration importing dependencies:
-    - Runtime: `shelf`, `googleapis`, `googleapis_auth`, `protobuf`, `args`, `yaml`, `path`, `http`
-    - Dev Dependencies: `test`, `checks`, `test_process`, `test_descriptor`
-  - Create [analysis_options.yaml](../analysis_options.yaml) enforcing strict lint settings.
-- [ ] **Task 1.2: Build CLI Entrypoint & Runner**
-  - Scaffold [bin/dtt.dart](../bin/dtt.dart) which delegates executions to the central command runner.
-  - Implement [lib/src/cli/runner.dart](../lib/src/cli/runner.dart) extending `CommandRunner` from `package:args`.
-  - Create command subclasses in `lib/src/cli/commands/`:
-    - `init.dart` $\rightarrow$ Initial workspace scaffold.
-    - `trigger_list.dart` $\rightarrow$ Discovery and trigger enumeration.
-    - `trigger_add.dart` $\rightarrow$ Adding trigger mappings to config.
-    - `generate.dart` $\rightarrow$ Runs model compilation and Terraform outputs synchronization.
-    - `deploy.dart` $\rightarrow$ Triggers containerization and provisions assets.
-- [ ] **Task 1.3: Design Configuration Parser**
-  - Build the configuration parser in [lib/src/cli/config.dart](../lib/src/cli/config.dart) loading the root [dtt.yaml](../dtt.yaml) settings.
+- [ ] **Task 1.1: Initialize Monorepo Package Workspace**
+  - Configure the root [pubspec.yaml](../pubspec.yaml) establishing the Native Dart Workspace.
+  - Create global workspace lints inside [analysis_options.yaml](../analysis_options.yaml).
+  - Scaffold package directories and their corresponding configurations:
+    - `packages/dtt_runtime`: Core event routing middleware. Depends on: `shelf`, `protobuf`, `google_cloud_shelf`.
+    - `packages/dtt`: CLI developer tooling agent. Depends on: `args`, `yaml`, `http`, `path`, `process`.
+    - `packages/google_cloud_events`: Standalone pre-compiled event models. Depends on: `protobuf`.
+- [ ] **Task 1.2: Build CLI Entrypoint & Developer Compiler**
+  - Scaffold CLI execution entrypoint in `packages/dtt/bin/dtt.dart`.
+  - Implement CLI command runner mapping in `packages/dtt/lib/src/cli/runner.dart` extending `CommandRunner`.
+  - Program developer catalog compiler `packages/dtt/lib/src/dev/cloudevents_compiler.dart` compiling raw `.proto` definitions recursively from sibling clones.
+  - Create command subclasses in `packages/dtt/lib/src/cli/commands/`:
+    - `init.dart` $\rightarrow$ Initial workspace scaffold (scaffolding client dependencies on `dtt_runtime` and `google_cloud_events`).
+    - `trigger_list.dart` $\rightarrow$ Discovery and trigger catalog enumeration.
+    - `trigger_add.dart` $\rightarrow$ Resolves trigger configurations.
+    - `generate.dart` $\rightarrow$ Runs model compilations, registers Shelf event routes, and synchronizes Terraform templates.
+    - `deploy.dart` $\rightarrow$ Runs Docker image packaging and executes Terraform provisioning.
+- [ ] **Task 1.3: Design Local Configuration Parser**
+  - Build the configuration loader in `packages/dtt/lib/src/cli/config.dart` resolving root [dtt.yaml](../dtt.yaml) settings.
   - Apply strict string regex validation on GCP attributes (Project IDs, service naming, regions) to block directory and shell injection vulnerabilities.
 
 *Milestone*: Running `dart bin/dtt.dart --help` returns clean, well-formatted help menus for all commands.
@@ -37,12 +40,12 @@ This document maps the actionable, phase-by-phase implementation schedule to con
 **Objective**: Connect to Google API endpoints and remote repositories to identify Eventarc trigger options and pull structural event schemas.
 
 - [ ] **Task 2.1: Establish GCP API Integrations**
-  - Implement the GCP Client in [lib/src/discovery/gcp_client.dart](../lib/src/discovery/gcp_client.dart).
+  - Implement the GCP Client in `packages/dtt/lib/src/discovery/gcp_client.dart`.
   - Integrate `googleapis` authentication mechanisms mapping local credentials.
   - Use `projects.locations.providers.list` and `projects.locations.providers.eventTypes.list` to query GCP directly for active Eventarc types.
 - [ ] **Task 2.2: Event Catalog Database & Model Cache**
   - Create a static metadata dictionary mapping popular Google Services to their corresponding files inside the Google CloudEvents repository:
-    - File: [lib/src/discovery/catalog.dart](../lib/src/discovery/catalog.dart).
+    - File: `packages/dtt/lib/src/discovery/catalog.dart`.
   - Implement a HTTP Schema Downloader targeting the official `raw.githubusercontent.com/googleapis/google-cloudevents` repository.
   - Save downloaded `.proto` resources to a local workspace cache folder `.dart_tool/dtt/schemas/`. Ensure parents are resolved.
 
@@ -55,7 +58,7 @@ This document maps the actionable, phase-by-phase implementation schedule to con
 **Objective**: Automatically translate standard Google Event schemas into fully type-safe Dart classes using the protocol buffers compilation tools.
 
 - [ ] **Task 3.1: Build Compilation Invoker**
-  - Program the compilation engine inside [lib/src/codegen/protoc_runner.dart](../lib/src/codegen/protoc_runner.dart).
+  - Program the compilation engine inside `packages/dtt/lib/src/codegen/protoc_runner.dart`.
   - Detect system installation of `protoc` and the Dart `protoc_plugin` wrapper. Warn and direct users if missing.
   - Invoke `Process.run` to compile fetched schemas.
     - *Critical Security Requirement*: Avoid plain command concatenations; pass parameters as discrete list arrays to prevent command injections.
@@ -63,7 +66,7 @@ This document maps the actionable, phase-by-phase implementation schedule to con
   - Standard event definitions from Google often import standard types (e.g., `google/protobuf/timestamp.proto` or `google/events/cloudevents.proto`).
   - Update the fetching logic to parse `.proto` import directives recursively, ensuring all required dependencies are downloaded before compilation runs.
 
-*Milestone*: Adding `google.cloud.storage.object.v1.finalized` stubs type-safe Dart representation classes in `lib/src/generated/google/events/cloud/storage/v1/data.pb.dart`.
+*Milestone*: Adding `google.cloud.storage.object.v1.finalized` stubs type-safe Dart representation classes in `packages/google_cloud_events/lib/google/events/cloud/storage/v1/data.pb.dart`.
 
 ---
 
@@ -72,11 +75,11 @@ This document maps the actionable, phase-by-phase implementation schedule to con
 **Objective**: Code the runtime parser recognizing Binary/Structured CloudEvents formats and generate starter trigger-handler callbacks.
 
 - [ ] **Task 4.1: Implement Unified CloudEvent Parser**
-  - Build the parsing engine in [lib/src/cloudevents.dart](../lib/src/cloudevents.dart).
+  - Build the parsing engine in `packages/dtt_runtime/lib/cloudevents.dart`.
   - Parse metadata out of either Binary Mode HTTP request headers (e.g. `ce-type`, `ce-source`) or Structured Mode JSON envelope elements in the POST payload body.
   - Decouple parsing parameters; parse the body either into standard JSON representations or directly map into custom dynamic buffers depending on context.
 - [ ] **Task 4.2: Callback Stub Scaffolder**
-  - Create the template generator inside [lib/src/codegen/handler_stub.dart](../lib/src/codegen/handler_stub.dart).
+  - Create the template generator inside `packages/dtt/lib/src/codegen/handler_stub.dart` and define event extension mapping stubs leveraging upstream client libraries (e.g. `package:google_cloud_storage`).
   - Scaffold a Shelf server bootstrap setup in `bin/server.dart` mapping path hooks (e.g., `/events/uploads`) to custom callbacks.
   - Automatically stub event callbacks with strong types (e.g. `CloudEvent<StorageObjectData>`) inside the target source directory `lib/src/handlers/`.
 
@@ -89,7 +92,7 @@ This document maps the actionable, phase-by-phase implementation schedule to con
 **Objective**: Translate declarative [dtt.yaml](../dtt.yaml) triggers configuration blocks into production-ready, highly secure Terraform configuration assets.
 
 - [ ] **Task 5.1: Create Terraform Config Scaffold**
-  - Program the synthesis engine inside [lib/src/codegen/terraform_gen.dart](../lib/src/codegen/terraform_gen.dart).
+  - Program the synthesis engine inside `packages/dtt/lib/src/codegen/terraform_gen.dart`.
   - Generate three standard files in `terraform/`:
     - `main.tf` $\rightarrow$ Structural GCP resources (Service accounts, triggers, run services).
     - `variables.tf` $\rightarrow$ Configurable deployment arguments.
@@ -107,11 +110,11 @@ This document maps the actionable, phase-by-phase implementation schedule to con
 **Objective**: Automate compiling release builds, running image container construction pipelines, and invoking Terraform orchestration commands.
 
 - [ ] **Task 6.1: Standard Containerizer Wrapper**
-  - Write standard Docker wrappers in [lib/src/deployer/docker_builder.dart](../lib/src/deployer/docker_builder.dart).
+  - Write standard Docker wrappers in `packages/dtt/lib/src/deployer/docker_builder.dart`.
   - Generate a secure, multi-stage `Dockerfile` optimized for Dart performance (compiling statically-linked AOT release builds).
   - Orchestrate local Docker builds, or delegate directly to Google Cloud Build.
 - [ ] **Task 6.2: Terraform Execution Integration**
-  - Program the runner engine inside [lib/src/deployer/terraform_runner.dart](../lib/src/deployer/terraform_runner.dart).
+  - Program the runner engine inside `packages/dtt/lib/src/deployer/terraform_runner.dart`.
   - Invoke list-bound system commands sequentially:
     1. `terraform init`
     2. `terraform validate`
@@ -144,7 +147,7 @@ To ensure security, stability, and standard conformity, the implementation cycle
 
 ### 1. Automated Security Check
 
-- **Security Scanner**: Prior to final merge, execute our native automated security scanner `run_security_scanner` on all newly created files in `lib/src/` and `bin/`. This identifies standard codebase vulnerabilities (XSS, script injection pathways, SQL injections). Any findings must be immediately corrected.
+- **Security Scanner**: Prior to final merge, execute our native automated security scanner `run_security_scanner` on all newly created files in `packages/dtt/` and `packages/dtt_runtime/`. This identifies standard codebase vulnerabilities (XSS, script injection pathways, SQL injections). Any findings must be immediately corrected.
 - **Security Audit**: Audit all newly constructed execution code blocks checking:
   - Strict inputs sanitization and regex validation on all files and environment paths.
   - Standard list parameters execution patterns on process spawns.

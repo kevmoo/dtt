@@ -2,7 +2,7 @@
 
 ![Dart Terraform Triggers Architectural Banner](assets/project_banner.png)
 
-This document provides a deep technical review and structural proposal analyzing the integration path between our proposed `dart_terraform_triggers` (`dtt`) library and the official Google-supported [functions-framework-dart](../../../functions-framework-dart) package. 
+This document provides a deep technical review and structural proposal analyzing the integration path between our proposed `dart_terraform_triggers` (`dtt`) library and the official Google-supported [functions-framework-dart](https://github.com/GoogleCloudPlatform/functions-framework-dart) package. 
 
 It maps their codebase patterns, uncovers standard integration barriers, evaluates technical choices, and details three strategic paths: **Build On Top**, **Reimagine / Replace**, and the **Hybrid Upstream** approach.
 
@@ -10,11 +10,11 @@ It maps their codebase patterns, uncovers standard integration barriers, evaluat
 
 ## 1. Deconstructing the `functions-framework-dart` Monorepo
 
-Following a structural review of the [functions-framework-dart](../../../functions-framework-dart) repository, the system relies on a two-part monorepo architecture leveraging Native Dart Workspaces and Melos:
+Following a structural review of the [functions-framework-dart](https://github.com/GoogleCloudPlatform/functions-framework-dart) repository, the system relies on a two-part monorepo architecture leveraging Native Dart Workspaces and Melos:
 
 1.  **`functions_framework` (Runtime Library)**:
     - Sets up a standard [shelf](https://pub.dev/packages/shelf) server equipped with termination handlers and connection configurations.
-    - Exposes annotations (`@CloudFunction()`) and defines a generic [CloudEvent](../../../functions-framework-dart/functions_framework/lib/src/cloud_event.dart) payload model.
+    - Exposes annotations (`@CloudFunction()`) and defines a generic [CloudEvent](https://github.com/GoogleCloudPlatform/functions-framework-dart/blob/main/functions_framework/lib/src/cloud_event.dart) payload model.
     - Implements HTTP CloudEvent bindings, parsing Binary and Structured payloads into Map or dynamic arrays.
 2.  **`functions_framework_builder` (Annotation Code-Gen Compiler)**:
     - Runs at build-time using Dart's standard `build_runner` framework.
@@ -48,7 +48,7 @@ void function(CloudEvent event, RequestContext context) {
 This forces developers to hunt down JSON layouts on documentation portals and manually type map-string index keys, representing a high vulnerability vector for runtime crashes.
 
 ### Gap 2: High Proto Schema Compilation Overhead
-The official `protobuf_firestore` sample demonstrates the current method for compiling Google Cloud Events schemas into Dart classes. It relies on a shell script [examples/protobuf_firestore/tool/regenerate_protos.sh](../../../functions-framework-dart/examples/protobuf_firestore/tool/regenerate_protos.sh):
+The official `protobuf_firestore` sample demonstrates the current method for compiling Google Cloud Events schemas into Dart classes. It relies on a shell script [examples/protobuf_firestore/tool/regenerate_protos.sh](https://github.com/GoogleCloudPlatform/functions-framework-dart/blob/main/examples/protobuf_firestore/tool/regenerate_protos.sh):
 - Developers **must manually clone** the colossal `googleapis/googleapis` repository locally.
 - Developers **must manually clone** the `googleapis/google-cloudevents` schema repository.
 - Developers configure environment variables `GOOGLEAPIS` and `GOOGLE_CLOUD_EVENTS` pointing to local checkout folders.
