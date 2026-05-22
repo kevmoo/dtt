@@ -1,0 +1,19 @@
+name: firebase_auth_example
+description: "Example serverless microservice showing how to deploy Dart Cloud Run services triggered by Firebase Auth created events."
+version: 0.1.0-wip
+publish_to: none # Example app container package, never publish to pub.dev
+
+environment:
+  sdk: ^3.12.0
+
+resolution: workspace
+
+dependencies:
+  dtt_runtime:
+    path: ../../packages/dtt_runtime
+  google_cloud_events:
+    path: ../../packages/google_cloud_events
+  google_cloud_logging: ^0.5.0
+  google_cloud_shelf: ^0.5.0
+  protobuf: ^6.0.0
+  shelf: ^1.4.0

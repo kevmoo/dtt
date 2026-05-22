@@ -6,14 +6,11 @@ environment:
   sdk: ^3.12.0
 
 workspace:
+  - _integration_test
+  - examples/firebase_auth_example
   - packages/dtt
   - packages/dtt_runtime
   - packages/google_cloud_events
-  - _integration_test
 
 dev_dependencies:
   dart_flutter_team_lints: ^3.5.2
-  fixnum: ^1.1.1
-  google_cloud_events: ^0.1.0-wip
-  http: ^1.6.0
-  protobuf: ^6.0.0
