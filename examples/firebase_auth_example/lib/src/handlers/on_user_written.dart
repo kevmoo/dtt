@@ -13,26 +13,23 @@
 // limitations under the License.
 
 import 'package:dtt_runtime/cloudevents.dart';
+import 'package:google_cloud_shelf/google_cloud_shelf.dart';
 import 'package:protobuf/well_known_types/google/protobuf/struct.pb.dart';
 
 /// Strongly-typed callback handler intercepting Cloud Firestore document write
 /// transaction signals in real-time.
 Future<void> onUserWritten(CloudEvent<Struct> event) async {
-  print('================================================================');
-  print('📡 RECEIVED REAL-TIME CLOUD FIRESTORE DOCUMENT WRITE SIGNAL! 📡');
-  print('================================================================');
-  print('Trigger Event ID : ${event.id}');
-  print('Event Type       : ${event.type}');
-  print('Database Context : ${event.source}');
-
-  // Under CloudEvents Firestore specifications, event.subject maps the
-  // dynamic resource document path (e.g. "documents/users/userId")!
-  print('Document Target  : ${event.subject}');
-
-  print('Snapshots Data   :');
-  final fields = event.data.fields;
-  for (final entry in fields.entries) {
-    print('  - ${entry.key}: ${entry.value}');
-  }
-  print('================================================================');
+  currentLogger.info(
+    '📡 RECEIVED REAL-TIME CLOUD FIRESTORE DOCUMENT WRITE SIGNAL!',
+    payload: {
+      'eventId': event.id,
+      'eventType': event.type,
+      'eventSource': event.source.toString(),
+      'eventSubject': event.subject,
+      'documentData': {
+        for (final entry in event.data.fields.entries)
+          entry.key: entry.value.toProto3Json(),
+      },
+    },
+  );
 }
