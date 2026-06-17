@@ -19,58 +19,7 @@ import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
 import '../hcl/hcl_writer.dart';
-
-/// Mapping metadata tracking trigger types, import URIs, and class definitions.
-class TriggerTypeMeta {
-  final String importPath;
-  final String className;
-  final String enumName;
-  final String defaultPath;
-  final bool isGlobal;
-  final String? triggerLocation;
-  final String? eventDataContentType;
-
-  const TriggerTypeMeta({
-    required this.importPath,
-    required this.className,
-    required this.enumName,
-    required this.defaultPath,
-    this.isGlobal = false,
-    this.triggerLocation,
-    this.eventDataContentType,
-  });
-}
-
-/// Dynamic catalog mapping GCP Eventarc types to pre-compiled model schemas.
-const Map<String, TriggerTypeMeta> _typeCatalog = {
-  'google.cloud.storage.object.v1.finalized': TriggerTypeMeta(
-    importPath:
-        'package:google_cloud_events/google/events/'
-        'cloud/storage/v1/data.pb.dart',
-    className: 'StorageObjectData',
-    enumName: 'CloudEventTrigger.gcsObjectFinalized',
-    defaultPath: '/events/uploads',
-  ),
-  'google.firebase.auth.user.v2.created': TriggerTypeMeta(
-    importPath:
-        'package:google_cloud_events/google/events/'
-        'firebase/auth/v1/data.pb.dart',
-    className: 'AuthEventData',
-    enumName: 'CloudEventTrigger.firebaseAuthUserCreated',
-    defaultPath: '/events/auth',
-    isGlobal: true,
-    triggerLocation: 'global',
-  ),
-  'google.cloud.firestore.document.v1.written': TriggerTypeMeta(
-    importPath:
-        'package:protobuf/well_known_types/google/protobuf/struct.pb.dart',
-    className: 'Struct',
-    enumName: 'CloudEventTrigger.firestoreDocumentWritten',
-    defaultPath: '/events/firestore',
-    triggerLocation: 'nam5',
-    eventDataContentType: 'application/protobuf',
-  ),
-};
+import 'trigger_config.dart';
 
 /// Orchestrates code-generation, outputting server entrypoints, distroless AOT
 /// Dockerfiles, and zero-trust regional Terraform manifests natively.
@@ -111,30 +60,10 @@ class DttGenerator {
       );
     }
 
-    final triggers = <Map<String, String>>[];
+    final triggers = <TriggerConfig>[];
     for (final node in triggersNode) {
-      if (node case {
-        'name': final String name,
-        'type': final String type,
-        'path': final String path,
-        'handler': final String handler,
-      }) {
-        final triggerMap = <String, String>{
-          'name': name,
-          'type': type,
-          'path': path,
-          'handler': handler,
-        };
-        if (node.containsKey('database')) {
-          triggerMap['database'] = node['database'] as String;
-        }
-        if (node.containsKey('document')) {
-          triggerMap['document'] = node['document'] as String;
-        }
-        if (node.containsKey('bucket')) {
-          triggerMap['bucket'] = node['bucket'] as String;
-        }
-        triggers.add(triggerMap);
+      if (node is YamlMap) {
+        triggers.add(TriggerConfig.fromYaml(node));
       } else {
         throw const FormatException(
           'Trigger mappings must specify name, type, path, and handler '
@@ -152,7 +81,7 @@ class DttGenerator {
 
   Future<void> _generateServer(
     String serviceName,
-    List<Map<String, String>> triggers,
+    List<TriggerConfig> triggers,
   ) async {
     final binDir = Directory(p.join(packageDir, 'bin'));
     if (!await binDir.exists()) {
@@ -169,16 +98,7 @@ class DttGenerator {
     final packageName = p.basename(packageDir);
 
     for (final trigger in triggers) {
-      final type = trigger['type']!;
-      final meta = _typeCatalog[type];
-      if (meta == null) {
-        throw UnsupportedError(
-          'Target Eventarc trigger type [$type] is not registered in '
-          'schemas catalog.',
-        );
-      }
-
-      final handler = trigger['handler']!;
+      final handler = trigger.handler;
       imports.add(
         'package:$packageName/src/handlers/'
         '${_camelToSnake(handler)}.dart',
@@ -200,10 +120,9 @@ class DttGenerator {
           final registrations = StringBuffer()..write('DttEventRouter()');
 
           for (final trigger in triggers) {
-            final type = trigger['type']!;
-            final meta = _typeCatalog[type]!;
-            final handler = trigger['handler']!;
-            final path = trigger['path']!;
+            final meta = trigger.meta;
+            final handler = trigger.handler;
+            final path = trigger.path;
             final enumName = meta.enumName;
             final defaultPath = meta.defaultPath;
 
@@ -267,7 +186,7 @@ class DttGenerator {
     final String serviceName,
     final String projectId,
     final String region,
-    final List<Map<String, String>> triggers,
+    final List<TriggerConfig> triggers,
   ) async {
     final tfDir = Directory(p.join(workspaceRoot, 'terraform'));
     if (!await tfDir.exists()) {
@@ -387,7 +306,7 @@ HclFile _buildVariablesTf(String projectId, String region) {
   return variablesFile;
 }
 
-HclFile _buildOutputsTf(List<Map<String, String>> triggers) {
+HclFile _buildOutputsTf(List<TriggerConfig> triggers) {
   final outputsFile = HclFile();
 
   final outputUrl =
@@ -407,7 +326,7 @@ HclFile _buildOutputsTf(List<Map<String, String>> triggers) {
 
   final triggerRefs = <HclValue>[];
   for (final trigger in triggers) {
-    final name = trigger['name']!;
+    final name = trigger.name;
     triggerRefs.add(HclValue.raw('google_eventarc_trigger.trigger_$name.id'));
   }
 
@@ -430,7 +349,7 @@ HclFile _buildMainTf({
   required String saAccountId,
   required String packageRelPath,
   required String gcloudPath,
-  required List<Map<String, String>> triggers,
+  required List<TriggerConfig> triggers,
 }) {
   final mainFile = HclFile();
 
@@ -630,14 +549,10 @@ List<HclBlock> _buildServiceAccountAndInvoker(
   return [serviceAccount, iamMember, iamReceiver];
 }
 
-List<HclBlock> _buildServiceAgentIamBlocks(List<Map<String, String>> triggers) {
+List<HclBlock> _buildServiceAgentIamBlocks(List<TriggerConfig> triggers) {
   final blocks = <HclBlock>[];
-  final hasFirestore = triggers.any(
-    (t) => t['type'] == 'google.cloud.firestore.document.v1.written',
-  );
-  final hasStorage = triggers.any(
-    (t) => t['type'] == 'google.cloud.storage.object.v1.finalized',
-  );
+  final hasFirestore = triggers.any((t) => t is FirestoreTriggerConfig);
+  final hasStorage = triggers.any((t) => t is StorageTriggerConfig);
 
   if (hasFirestore) {
     blocks.add(
@@ -784,19 +699,16 @@ List<HclBlock> _buildServiceAgentIamBlocks(List<Map<String, String>> triggers) {
   return blocks;
 }
 
-HclBlock _buildEventarcTriggerBlock(
-  Map<String, String> trigger,
-  String serviceName,
-) {
-  final name = trigger['name']!;
-  final type = trigger['type']!;
-  final path = trigger['path']!;
+HclBlock _buildEventarcTriggerBlock(TriggerConfig trigger, String serviceName) {
+  final name = trigger.name;
+  final type = trigger.type.identifier;
+  final path = trigger.path;
 
-  final meta = _typeCatalog[type];
-  final isGlobal = meta != null && meta.isGlobal;
+  final meta = trigger.meta;
+  final isGlobal = meta.isGlobal;
 
   final HclValue triggerLocationVal;
-  if (meta != null && meta.triggerLocation != null) {
+  if (meta.triggerLocation != null) {
     triggerLocationVal = HclValue.string(meta.triggerLocation!);
   } else {
     triggerLocationVal = const HclValue.raw('var.region');
@@ -815,7 +727,7 @@ HclBlock _buildEventarcTriggerBlock(
     triggerBlock.attribute('provider', const HclValue.raw('google-beta'));
   }
 
-  if (meta != null && meta.eventDataContentType != null) {
+  if (meta.eventDataContentType != null) {
     triggerBlock.attribute(
       'event_data_content_type',
       HclValue.string(meta.eventDataContentType!),
@@ -843,26 +755,26 @@ HclBlock _buildEventarcTriggerBlock(
       ..attribute('value', HclValue.string(type)),
   ];
 
-  if (trigger.containsKey('database')) {
-    criteriaList.add(
-      HclBlock(type: 'matching_criteria')
-        ..attribute('attribute', const HclValue.string('database'))
-        ..attribute('value', HclValue.string(trigger['database']!)),
-    );
-  }
-  if (trigger.containsKey('document')) {
-    criteriaList.add(
-      HclBlock(type: 'matching_criteria')
-        ..attribute('attribute', const HclValue.string('document'))
-        ..attribute('value', HclValue.string(trigger['document']!)),
-    );
-  }
-  if (trigger.containsKey('bucket')) {
-    criteriaList.add(
-      HclBlock(type: 'matching_criteria')
-        ..attribute('attribute', const HclValue.string('bucket'))
-        ..attribute('value', HclValue.string(trigger['bucket']!)),
-    );
+  switch (trigger) {
+    case FirestoreTriggerConfig(:final database, :final document):
+      criteriaList.add(
+        HclBlock(type: 'matching_criteria')
+          ..attribute('attribute', const HclValue.string('database'))
+          ..attribute('value', HclValue.string(database)),
+      );
+      criteriaList.add(
+        HclBlock(type: 'matching_criteria')
+          ..attribute('attribute', const HclValue.string('document'))
+          ..attribute('value', HclValue.string(document)),
+      );
+    case StorageTriggerConfig(:final bucket):
+      criteriaList.add(
+        HclBlock(type: 'matching_criteria')
+          ..attribute('attribute', const HclValue.string('bucket'))
+          ..attribute('value', HclValue.string(bucket)),
+      );
+    case TriggerConfig():
+      break;
   }
 
   triggerBlock.addBlock(destination);
