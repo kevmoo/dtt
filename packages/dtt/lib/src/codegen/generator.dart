@@ -23,11 +23,19 @@ import 'trigger_config.dart';
 
 /// Orchestrates code-generation, outputting server entrypoints, distroless AOT
 /// Dockerfiles, and zero-trust regional Terraform manifests natively.
-class DttGenerator {
+Future<void> generateProject({
+  required String workspaceRoot,
+  required String packageDir,
+}) => _DttGenerator(
+  workspaceRoot: workspaceRoot,
+  packageDir: packageDir,
+).generateAll();
+
+class _DttGenerator {
   final String workspaceRoot;
   final String packageDir;
 
-  DttGenerator({required this.workspaceRoot, required this.packageDir});
+  _DttGenerator({required this.workspaceRoot, required this.packageDir});
 
   /// Runs all sub-generators, creating/updating target files in the workspace.
   Future<void> generateAll() async {

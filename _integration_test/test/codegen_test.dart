@@ -45,11 +45,10 @@ triggers:
         final packagePath = p.join(workspacePath, 'my_package');
 
         // 2. Invoke the core generator engine
-        final generator = DttGenerator(
+        await generateProject(
           workspaceRoot: workspacePath,
           packageDir: packagePath,
         );
-        await generator.generateAll();
 
         // 3. Assert generated serverless entrypoint bin/server.dart is pristine
         final serverFile = File(p.join(packagePath, 'bin', 'server.dart'));
@@ -139,11 +138,10 @@ triggers:
         final workspacePath = d.sandbox;
         final packagePath = p.join(workspacePath, 'custom_package');
 
-        final generator = DttGenerator(
+        await generateProject(
           workspaceRoot: workspacePath,
           packageDir: packagePath,
         );
-        await generator.generateAll();
 
         final serverFile = File(p.join(packagePath, 'bin', 'server.dart'));
         check(await serverFile.exists()).isTrue();
@@ -182,11 +180,10 @@ triggers:
         final packagePath = p.join(workspacePath, 'firestore_package');
 
         // 2. Invoke the core generator engine
-        final generator = DttGenerator(
+        await generateProject(
           workspaceRoot: workspacePath,
           packageDir: packagePath,
         );
-        await generator.generateAll();
 
         // 3. Assert generated serverless entrypoint bin/server.dart is pristine
         final serverFile = File(p.join(packagePath, 'bin', 'server.dart'));

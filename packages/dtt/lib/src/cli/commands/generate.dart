@@ -57,12 +57,7 @@ class GenerateCommand extends Command<void> {
       '$workspaceRoot...',
     );
 
-    final generator = DttGenerator(
-      workspaceRoot: workspaceRoot,
-      packageDir: currentDir,
-    );
-
-    await generator.generateAll();
+    await generateProject(workspaceRoot: workspaceRoot, packageDir: currentDir);
     print('Code and Terraform manifests generated successfully!');
   }
 
