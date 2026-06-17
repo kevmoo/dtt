@@ -1,7 +1,7 @@
 variable "project_id" {
   type        = string
   description = "Target Google Cloud Platform Project ID."
-  default     = "n26-full-stack-dart"
+  default     = "dart-sdk-bazel-sandbox-265004"
 }
 
 variable "region" {

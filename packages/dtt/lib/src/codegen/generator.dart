@@ -45,14 +45,16 @@ class TriggerTypeMeta {
 const Map<String, TriggerTypeMeta> _typeCatalog = {
   'google.cloud.storage.object.v1.finalized': TriggerTypeMeta(
     importPath:
-        'package:google_cloud_events/google/events/cloud/storage/v1/data.pb.dart',
+        'package:google_cloud_events/google/events/'
+        'cloud/storage/v1/data.pb.dart',
     className: 'StorageObjectData',
     enumName: 'CloudEventTrigger.gcsObjectFinalized',
     defaultPath: '/events/uploads',
   ),
   'google.firebase.auth.user.v2.created': TriggerTypeMeta(
     importPath:
-        'package:google_cloud_events/google/events/firebase/auth/v1/data.pb.dart',
+        'package:google_cloud_events/google/events/'
+        'firebase/auth/v1/data.pb.dart',
     className: 'AuthEventData',
     enumName: 'CloudEventTrigger.firebaseAuthUserCreated',
     defaultPath: '/events/auth',
@@ -128,6 +130,9 @@ class DttGenerator {
         }
         if (node.containsKey('document')) {
           triggerMap['document'] = node['document'] as String;
+        }
+        if (node.containsKey('bucket')) {
+          triggerMap['bucket'] = node['bucket'] as String;
         }
         triggers.add(triggerMap);
       } else {
@@ -285,11 +290,15 @@ class DttGenerator {
       }
     } catch (_) {}
 
-    // Resolve the dynamic relative path from workspaceRoot/terraform to packageDir!
+    // Resolve the dynamic relative path from workspaceRoot/terraform to
+    // packageDir!
     final packageRelPath = p.relative(packageDir, from: workspaceRoot);
 
     final hasFirestore = triggers.any(
       (t) => t['type'] == 'google.cloud.firestore.document.v1.written',
+    );
+    final hasStorage = triggers.any(
+      (t) => t['type'] == 'google.cloud.storage.object.v1.finalized',
     );
 
     // Dynamic truncated SA ID resolving GCP's strict 30-character limit!
@@ -367,14 +376,16 @@ class DttGenerator {
     // Buildpacks
     final builderShell =
         '''
-      # 1. Create a clean, isolated temporary staging directory inside system /tmp!
+      # 1. Create a clean, isolated temporary staging directory inside system
+      # /tmp!
       STAGE_DIR=\$(mktemp -d -t dtt-build-XXXXXX)
       echo "📡 Created isolated temporary staging directory: \$STAGE_DIR"
 
       # 2. Structure the clean target folders
       mkdir -p \$STAGE_DIR/bin
 
-      # 3. Cross-compile the Dart server to a standalone native Linux AOT ELF binary!
+      # 3. Cross-compile the Dart server to a standalone native Linux AOT ELF
+      # binary!
       cd \${path.module}/../$packageRelPath
       dart pub get
       dart compile exe bin/server.dart \\
@@ -382,12 +393,12 @@ class DttGenerator {
         --target-os linux \\
         --target-arch x64
 
-      # 4. Deploy the compiled temp directory directly to Cloud Run using osonly base image!
+      # 4. Deploy the compiled temp directory directly to Cloud Run using osonly
+      # base image!
       $gcloudPath beta run deploy $serviceName \\
         --source=\$STAGE_DIR \\
         --region=\${var.region} \\
-        --ingress=all \\
-        --allow-unauthenticated \\
+        --ingress=internal \\
         --project=\${var.project_id} \\
         --no-build \\
         --base-image=osonly24 \\
@@ -556,6 +567,41 @@ class DttGenerator {
       mainFile.addBlock(allServicesAudit);
     }
 
+    if (hasStorage) {
+      final gcsAccount = HclBlock(
+        type: 'data',
+        labels: const <String>[
+          'google_storage_project_service_account',
+          'gcs_account',
+        ],
+      );
+      mainFile.addBlock(gcsAccount);
+
+      final storagePublisher =
+          HclBlock(
+              type: 'resource',
+              labels: const <String>[
+                'google_project_iam_member',
+                'storage_pubsub_publisher',
+              ],
+            )
+            ..comment(
+              'Grant Cloud Storage Service Agent permissions to publish to '
+              'transport topics',
+            )
+            ..attribute('project', const HclValue.raw('var.project_id'))
+            ..attribute('role', const HclValue.string('roles/pubsub.publisher'))
+            ..attribute(
+              'member',
+              const HclValue.string(
+                'serviceAccount:'
+                r'${data.google_storage_project_service_account.'
+                r'gcs_account.email_address}',
+              ),
+            );
+      mainFile.addBlock(storagePublisher);
+    }
+
     // Block 6.3: Grant Token Creator role to Pub/Sub Service Agent on Custom SA
     final pubsubTokenCreator =
         HclBlock(
@@ -689,6 +735,13 @@ class DttGenerator {
           HclBlock(type: 'matching_criteria')
             ..attribute('attribute', const HclValue.string('document'))
             ..attribute('value', HclValue.string(trigger['document']!)),
+        );
+      }
+      if (trigger.containsKey('bucket')) {
+        criteriaList.add(
+          HclBlock(type: 'matching_criteria')
+            ..attribute('attribute', const HclValue.string('bucket'))
+            ..attribute('value', HclValue.string(trigger['bucket']!)),
         );
       }
 

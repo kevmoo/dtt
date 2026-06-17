@@ -13,23 +13,20 @@
 // limitations under the License.
 
 import 'package:dtt_runtime/cloudevents.dart';
+import 'package:google_cloud_events/google_cloud_events.dart';
 import 'package:google_cloud_shelf/google_cloud_shelf.dart';
-import 'package:protobuf/well_known_types/google/protobuf/struct.pb.dart';
 
-/// Strongly-typed callback handler intercepting Cloud Firestore document write
-/// transaction signals in real-time.
-Future<void> onUserWritten(CloudEvent<Struct> event) async {
+/// Strongly-typed callback handler intercepting Google Cloud Storage object
+/// upload finalization signals in real-time.
+Future<void> onUpload(CloudEvent<StorageObjectData> event) async {
   currentLogger.info(
-    '📡 RECEIVED REAL-TIME CLOUD FIRESTORE DOCUMENT WRITE SIGNAL!',
+    '📡 RECEIVED REAL-TIME GCS OBJECT UPLOAD FINALIZATION SIGNAL!',
     payload: {
       'eventId': event.id,
       'eventType': event.type,
       'eventSource': event.source.toString(),
       'eventSubject': event.subject,
-      'documentData': {
-        for (final entry in event.data.fields.entries)
-          entry.key: entry.value.toProto3Json(),
-      },
+      'objectData': event.data.toProto3Json(),
     },
   );
 }

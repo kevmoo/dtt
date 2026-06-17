@@ -25,7 +25,7 @@ provider "google-beta" {
 
 # Retrieve live metadata of our pre-deployed OS-only service
 data "google_cloud_run_v2_service" "service" {
-  name       = "firestore-triggers"
+  name       = "gcs-triggers"
   location   = var.region
   depends_on = [ null_resource.cloud_run_deploy ]
 }
@@ -59,11 +59,10 @@ resource "null_resource" "cloud_run_deploy" {
         --target-arch x64
 
       # 4. Deploy the compiled temp directory directly to Cloud Run using osonly base image!
-      /Users/kevmoo/.local/share/mise/installs/gcloud/569.0.0/bin/gcloud beta run deploy firestore-triggers \
+      /Users/kevmoo/.local/share/google-cloud-sdk/bin/gcloud beta run deploy gcs-triggers \
         --source=$STAGE_DIR \
         --region=${var.region} \
-        --ingress=all \
-        --allow-unauthenticated \
+        --ingress=internal \
         --project=${var.project_id} \
         --no-build \
         --base-image=osonly24 \
@@ -79,8 +78,8 @@ EOT
 
 # Zero-Trust minimum privilege service account mapping
 resource "google_service_account" "eventarc_invoker" {
-  account_id   = "dtt-firestore-trigg-inv"
-  display_name = "Eventarc firestore-triggers Invoker Service Account"
+  account_id   = "dtt-gcs-triggers-inv"
+  display_name = "Eventarc gcs-triggers Invoker Service Account"
 }
 
 # Grant Invoker Service Account authorization to call our Cloud Run container
@@ -98,25 +97,14 @@ resource "google_project_iam_member" "eventarc_receiver" {
   member  = "serviceAccount:${google_service_account.eventarc_invoker.email}"
 }
 
-# Grant Cloud Firestore Service Agent permissions to publish to transport topics
-resource "google_project_iam_member" "firestore_pubsub_publisher" {
-  project = var.project_id
-  role    = "roles/pubsub.publisher"
-  member  = "serviceAccount:service-${data.google_project.project.number}@gcp-sa-firestore.iam.gserviceaccount.com"
+data "google_storage_project_service_account" "gcs_account" {
 }
 
-# Enable Project-Wide Data Access Audit Logs for all services to forward triggers event signals
-resource "google_project_iam_audit_config" "all_services_audit" {
+# Grant Cloud Storage Service Agent permissions to publish to transport topics
+resource "google_project_iam_member" "storage_pubsub_publisher" {
   project = var.project_id
-  service = "allServices"
-
-  audit_log_config {
-    log_type = "DATA_WRITE"
-  }
-
-  audit_log_config {
-    log_type = "DATA_READ"
-  }
+  role    = "roles/pubsub.publisher"
+  member  = "serviceAccount:${data.google_storage_project_service_account.gcs_account.email_address}"
 }
 
 # Grant Pub/Sub Service Agent permissions to generate OIDC tokens under our Custom SA
@@ -133,33 +121,27 @@ resource "google_service_account_iam_member" "eventarc_sa_user" {
   member             = "serviceAccount:service-${data.google_project.project.number}@gcp-sa-eventarc.iam.gserviceaccount.com"
 }
 
-# GCP Eventarc Trigger Mapping signals: user-written
-resource "google_eventarc_trigger" "trigger_user-written" {
-  name                    = "firestore-triggers-user-written-trigger"
-  location                = "nam5"
-  event_data_content_type = "application/protobuf"
-  service_account         = google_service_account.eventarc_invoker.email
+# GCP Eventarc Trigger Mapping signals: on-upload
+resource "google_eventarc_trigger" "trigger_on-upload" {
+  name            = "gcs-triggers-on-upload-trigger"
+  location        = var.region
+  service_account = google_service_account.eventarc_invoker.email
 
   destination {
     cloud_run_service {
       service = data.google_cloud_run_v2_service.service.name
       region  = var.region
-      path    = "/events/users"
+      path    = "/events/uploads"
     }
   }
 
   matching_criteria {
     attribute = "type"
-    value     = "google.cloud.firestore.document.v1.written"
+    value     = "google.cloud.storage.object.v1.finalized"
   }
 
   matching_criteria {
-    attribute = "database"
-    value     = "(default)"
-  }
-
-  matching_criteria {
-    attribute = "document"
-    value     = "documents/users/{userId}"
+    attribute = "bucket"
+    value     = "dart-sdk-bazel-sandbox-dtt-upload"
   }
 }

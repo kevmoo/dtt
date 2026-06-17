@@ -4,6 +4,6 @@ output "service_url" {
 }
 
 output "eventarc_trigger_ids" {
-  value       = [ google_eventarc_trigger.trigger_user-written.id ]
+  value       = [ google_eventarc_trigger.trigger_on-upload.id ]
   description = "Resource identifiers tracking active Eventarc triggers."
 }
