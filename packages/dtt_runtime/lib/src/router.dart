@@ -79,23 +79,34 @@ class DttEventRouter {
       try {
         final decoded = jsonDecode(bodyStr);
         if (decoded is! Map<String, dynamic>) {
-          return Response.badRequest(
-            body: 'Invalid CloudEvent envelope: expected a JSON object.',
+          throw const _BadEnvelopeException(
+            'Invalid CloudEvent envelope: expected a JSON object.',
           );
         }
         envelope = decoded;
+
+        if (isPubSubBinding) {
+          eventType = switch (envelope) {
+            {'message': {'attributes': {'ce-type': String s}}} => s,
+            {'message': {'attributes': {'type': String s}}} => s,
+            _ => throw const _BadEnvelopeException(
+              'Invalid Pub/Sub binding: missing ce-type attribute.',
+            ),
+          };
+        } else {
+          eventType = switch (envelope) {
+            {'type': String s} => s,
+            _ => throw const _BadEnvelopeException(
+              'Invalid Structured CloudEvent: missing type attribute.',
+            ),
+          };
+        }
       } on FormatException {
         return Response.badRequest(
           body: 'Invalid CloudEvent envelope: malformed JSON.',
         );
-      }
-
-      if (isPubSubBinding) {
-        final message = envelope['message'] as Map<String, dynamic>? ?? {};
-        final attrs = message['attributes'] as Map<String, dynamic>? ?? {};
-        eventType = (attrs['ce-type'] ?? attrs['type']) as String? ?? '';
-      } else {
-        eventType = envelope['type'] as String? ?? '';
+      } on _BadEnvelopeException catch (e) {
+        return Response.badRequest(body: e.message);
       }
 
       targetRequest = request.change(
@@ -132,4 +143,9 @@ class _RouteEntry<T extends GeneratedMessage> {
     final event = await CloudEvent.parse<T>(request, create);
     await handler(event);
   }
+}
+
+class _BadEnvelopeException implements Exception {
+  final String message;
+  const _BadEnvelopeException(this.message);
 }

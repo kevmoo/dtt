@@ -222,5 +222,33 @@ void main() {
         check(arrayRes.body).contains('expected a JSON object');
       },
     );
+
+    test(
+      'Returns 400 Bad Request on malformed inner CloudEvent attributes',
+      () async {
+        final uri = Uri.parse('http://localhost:$port/events/uploads');
+        final pubsubUri = Uri.parse(
+          'http://localhost:$port/events/uploads?__GCP_CloudEventsMode=CE_PUBSUB_BINDING',
+        );
+
+        // Pub/Sub mode where message is a string instead of map
+        final pubsubRes = await http.post(
+          pubsubUri,
+          headers: {'content-type': 'application/json'},
+          body: jsonEncode({'message': 'not a map'}),
+        );
+        check(pubsubRes.statusCode).equals(400);
+        check(pubsubRes.body).contains('missing ce-type attribute');
+
+        // Structured mode where type is an integer instead of string
+        final structRes = await http.post(
+          uri,
+          headers: {'content-type': 'application/cloudevents+json'},
+          body: jsonEncode({'type': 12345}),
+        );
+        check(structRes.statusCode).equals(400);
+        check(structRes.body).contains('missing type attribute');
+      },
+    );
   });
 }

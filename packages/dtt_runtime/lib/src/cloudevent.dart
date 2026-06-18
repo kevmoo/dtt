@@ -78,8 +78,14 @@ class CloudEvent<T extends GeneratedMessage> {
     if (isPubSubBinding) {
       final envelope = await request._readEnvelope();
 
-      final message = envelope['message'] as Map<String, dynamic>? ?? {};
-      final attributes = message['attributes'] as Map<String, dynamic>? ?? {};
+      final message = switch (envelope['message']) {
+        Map<String, dynamic> m => m,
+        _ => const <String, dynamic>{},
+      };
+      final attributes = switch (message['attributes']) {
+        Map<String, dynamic> a => a,
+        _ => const <String, dynamic>{},
+      };
 
       // 1. Dynamically harvest all attributes, stripping 'ce-' prefix!
       for (final entry in attributes.entries) {
@@ -90,8 +96,7 @@ class CloudEvent<T extends GeneratedMessage> {
       }
 
       // 2. Unpack the base64-encoded data payload
-      if (message.containsKey('data')) {
-        final rawData = message['data'] as String;
+      if (message['data'] case String rawData) {
         final decodedBytes = base64Decode(rawData);
 
         final dataContentType = jsonMap['datacontenttype'] as String?;
@@ -101,7 +106,9 @@ class CloudEvent<T extends GeneratedMessage> {
         final data = create();
         if (isJson) {
           final decodedMap = jsonDecode(utf8.decode(decodedBytes));
-          data.mergeFromProto3Json(decodedMap);
+          if (decodedMap is Map<String, dynamic>) {
+            data.mergeFromProto3Json(decodedMap);
+          }
         } else {
           data.mergeFromBuffer(decodedBytes);
         }
@@ -117,14 +124,14 @@ class CloudEvent<T extends GeneratedMessage> {
         jsonMap.addAll(envelope);
 
         final data = create();
-        if (envelope.containsKey('data_base64')) {
-          final bytes = base64Decode(envelope['data_base64'] as String);
+        if (envelope['data_base64'] case String b64) {
+          final bytes = base64Decode(b64);
           data.mergeFromBuffer(bytes);
         } else if (envelope.containsKey('data')) {
           final rawData = envelope['data'];
           if (rawData is String) {
             data.mergeFromJson(rawData);
-          } else {
+          } else if (rawData is Map<String, dynamic>) {
             data.mergeFromProto3Json(rawData);
           }
         }
@@ -147,7 +154,9 @@ class CloudEvent<T extends GeneratedMessage> {
             dataContentType != null && dataContentType.contains('json');
         if (isJson) {
           final decodedMap = jsonDecode(utf8.decode(rawBytes));
-          data.mergeFromProto3Json(decodedMap);
+          if (decodedMap is Map<String, dynamic>) {
+            data.mergeFromProto3Json(decodedMap);
+          }
         } else {
           data.mergeFromBuffer(rawBytes);
         }
@@ -157,17 +166,33 @@ class CloudEvent<T extends GeneratedMessage> {
 
     // 3. Construct CloudEvent from unified harvested JSON map!
     return CloudEvent<T>(
-      id: jsonMap['id'] as String? ?? '',
-      source: Uri.parse(jsonMap['source'] as String? ?? ''),
-      specVersion:
-          (jsonMap['specversion'] ?? jsonMap['specversion']) as String? ?? '',
-      type: jsonMap['type'] as String? ?? '',
-      dataContentType: jsonMap['datacontenttype'] as String?,
-      subject: jsonMap['subject'] as String?,
-      time: jsonMap['time'] != null
-          ? DateTime.tryParse(jsonMap['time'] as String)
+      id: switch (jsonMap['id']) {
+        String s => s,
+        _ => '',
+      },
+      source: Uri.tryParse(jsonMap['source']?.toString() ?? '') ?? Uri(),
+      specVersion: switch (jsonMap['specversion']) {
+        String s => s,
+        _ => '',
+      },
+      type: switch (jsonMap['type']) {
+        String s => s,
+        _ => '',
+      },
+      dataContentType: jsonMap['datacontenttype'] is String?
+          ? jsonMap['datacontenttype'] as String?
           : null,
-      data: jsonMap['data_model'] as T,
+      subject: jsonMap['subject'] is String?
+          ? jsonMap['subject'] as String?
+          : null,
+      time: switch (jsonMap['time']) {
+        String s => DateTime.tryParse(s),
+        _ => null,
+      },
+      data: switch (jsonMap['data_model']) {
+        T d => d,
+        _ => create(),
+      },
     );
   }
 }
