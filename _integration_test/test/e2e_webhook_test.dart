@@ -16,7 +16,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:checks/checks.dart';
-import 'package:dtt_runtime/cloudevents.dart';
+import 'package:dtt_runtime/dtt_runtime.dart';
 import 'package:fixnum/fixnum.dart';
 import 'package:google_cloud_events/google_cloud_events.dart';
 import 'package:http/http.dart' as http;

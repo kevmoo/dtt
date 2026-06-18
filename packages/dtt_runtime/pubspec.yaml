@@ -3,6 +3,12 @@ description: >-
   Core runtime event parsing and Shelf-based routing engine for Dart Terraform
   Triggers (dtt).
 version: 0.1.0-wip
+repository: https://github.com/kevmoo/dtt
+topics:
+  - cloud-run
+  - eventarc
+  - gcp
+  - serverless
 
 environment:
   sdk: ^3.12.0

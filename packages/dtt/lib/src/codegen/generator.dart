@@ -108,7 +108,7 @@ class _DttGenerator {
     }
 
     final imports = <String>{
-      'package:dtt_runtime/cloudevents.dart',
+      'package:dtt_runtime/dtt_runtime.dart',
       'package:google_cloud_events/google_cloud_events.dart',
       'package:google_cloud_shelf/google_cloud_shelf.dart',
       'package:shelf/shelf.dart',
