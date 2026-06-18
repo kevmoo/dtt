@@ -16,7 +16,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:checks/checks.dart';
-import 'package:dtt_runtime/cloudevents.dart';
+import 'package:dtt_runtime/dtt_runtime.dart';
 import 'package:fixnum/fixnum.dart';
 import 'package:google_cloud_events/google_cloud_events.dart';
 import 'package:http/http.dart' as http;
@@ -196,6 +196,93 @@ void main() {
       check(payload.name).equals('data.json');
       check(payload.size).equals(Int64(789));
       check(payload.contentType).equals('application/json');
+    });
+
+    test(
+      'Returns 400 Bad Request on malformed JSON or non-Map roots',
+      () async {
+        final uri = Uri.parse('http://localhost:$port/events/uploads');
+
+        // Malformed JSON
+        final malformedRes = await http.post(
+          uri,
+          headers: {'content-type': 'application/cloudevents+json'},
+          body: '{bad json',
+        );
+        check(malformedRes.statusCode).equals(400);
+        check(malformedRes.body).contains('malformed JSON');
+
+        // JSON Array instead of JSON Object Map
+        final arrayRes = await http.post(
+          uri,
+          headers: {'content-type': 'application/cloudevents+json'},
+          body: '["not", "a", "map"]',
+        );
+        check(arrayRes.statusCode).equals(400);
+        check(arrayRes.body).contains('expected a JSON object');
+      },
+    );
+
+    test(
+      'Returns 400 Bad Request on malformed inner CloudEvent attributes',
+      () async {
+        final uri = Uri.parse('http://localhost:$port/events/uploads');
+        final pubsubUri = Uri.parse(
+          'http://localhost:$port/events/uploads?__GCP_CloudEventsMode=CE_PUBSUB_BINDING',
+        );
+
+        // Pub/Sub mode where message is a string instead of map
+        final pubsubRes = await http.post(
+          pubsubUri,
+          headers: {'content-type': 'application/json'},
+          body: jsonEncode({'message': 'not a map'}),
+        );
+        check(pubsubRes.statusCode).equals(400);
+        check(pubsubRes.body).contains('missing ce-type attribute');
+
+        // Structured mode where type is an integer instead of string
+        final structRes = await http.post(
+          uri,
+          headers: {'content-type': 'application/cloudevents+json'},
+          body: jsonEncode({'type': 12345}),
+        );
+        check(structRes.statusCode).equals(400);
+        check(structRes.body).contains('missing type attribute');
+      },
+    );
+
+    test(
+      'Returns 400 Bad Request on malformed Protobuf JSON payloads',
+      () async {
+        final uri = Uri.parse('http://localhost:$port/events/uploads');
+
+        // Structured mode where data is an array instead of map/string
+        final badDataRes = await http.post(
+          uri,
+          headers: {'content-type': 'application/cloudevents+json'},
+          body: jsonEncode({
+            'id': 'evt_bad_data',
+            'source': '//test',
+            'specversion': '1.0',
+            'type': 'google.cloud.storage.object.v1.finalized',
+            'data': [1, 2, 3],
+          }),
+        );
+        check(badDataRes.statusCode).equals(400);
+        check(badDataRes.body).contains('Expected a JSON object');
+      },
+    );
+
+    test('Returns 400 Bad Request on invalid UTF-8 byte streams', () async {
+      final uri = Uri.parse('http://localhost:$port/events/uploads');
+
+      final badUtf8Res = await http.post(
+        uri,
+        headers: {'content-type': 'application/cloudevents+json'},
+        body: [0xFF, 0xFE, 0xFD],
+      );
+      check(badUtf8Res.statusCode).equals(400);
+      check(badUtf8Res.body).contains('malformed JSON');
     });
   });
 }

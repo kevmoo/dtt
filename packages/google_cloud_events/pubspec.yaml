@@ -3,6 +3,12 @@ description: >-
   Pre-compiled Dart Protobuf classes representing the official GCP Eventarc
   CloudEvents specification catalog.
 version: 0.1.0-wip
+repository: https://github.com/kevmoo/dtt
+topics:
+  - cloudevents
+  - eventarc
+  - gcp
+  - protobuf
 
 environment:
   sdk: ^3.12.0

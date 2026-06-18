@@ -15,14 +15,16 @@ A high-performance, developer-centric toolchain and library designed to make it 
 
 ## 📖 Navigating the Project
 
-We have laid out a structured set of technical plans, architecture specifications, and safety assessments for this project. Explore the links below:
+Explore the canonical specifications and operational walkthroughs below:
 
-*   **[Original Brainstorm Doc](docs/brainstorm.md)**: The raw initial conceptualization.
-*   **[Technical Architecture & System Design Specification](docs/architecture.md)**: Deep dive into the data flows, OIDC authentication, schema resolvers, code-gen mechanisms, and custom routing engines.
-*   **[Security Plan & Threat Model Specification](docs/threat_model.md)**: High-fidelity security mapping detailing trust boundaries, privileged operations, shell command sanitization, and ingress lockdowns.
-*   **[Phased Implementation & Verification Plan](docs/implementation_plan.md)**: Step-by-step developer task breakdowns, unit testing coverage plans, hermetic CLI integration tests, and automated vulnerability scanning guidelines.
-*   **[Maintainer Toolchain Guide](tool/README.md)**: Execution sequence and
-    architecture for our two-stage offline catalog codegen scripts.
+* **[Technical Architecture](docs/architecture.md)**: Deep dive into data
+  flows, OIDC authentication, schema resolvers, and custom routing engines.
+* **[Security Threat Model](docs/threat_model.md)**: High-fidelity security
+  mapping detailing trust boundaries, privileged operations, and lockdowns.
+* **[Production Deployment Guide](docs/deployment_guide.md)**: Operational
+  guide covering Cloud Run perimeter security, IAM invokers, and verification.
+* **[Maintainer Toolchain Guide](tool/README.md)**: Execution sequence and
+  architecture for our two-stage offline catalog codegen scripts.
 
 ---
 

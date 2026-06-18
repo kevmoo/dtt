@@ -213,7 +213,7 @@ The CLI automatically stubs out corresponding typed handlers inside the user's p
 // lib/src/handlers/storage_upload_handler.dart
 import 'package:google_cloud_events/google/events/cloud/storage/v1/data.pb.dart';
 import 'package:google_cloud_storage/google_cloud_storage.dart';
-import 'package:dtt_runtime/cloudevents.dart';
+import 'package:dtt_runtime/dtt_runtime.dart';
 
 /// Type-safe callback handling file finalizations in Google Cloud Storage.
 /// Leverages upstream extension mappings from package:google_cloud_storage.

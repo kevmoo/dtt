@@ -3,6 +3,12 @@ description: >-
   Developer CLI tool for scaffolding, configuring, and deploying serverless Dart
   Eventarc trigger Cloud Run services.
 version: 0.1.0-wip
+repository: https://github.com/kevmoo/dtt
+topics:
+  - cloud-run
+  - eventarc
+  - gcp
+  - serverless
 
 environment:
   sdk: ^3.12.0

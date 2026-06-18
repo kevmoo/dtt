@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import 'package:dtt_runtime/cloudevents.dart';
+import 'package:dtt_runtime/dtt_runtime.dart';
 import 'package:google_cloud_events/google_cloud_events.dart';
 import 'package:google_cloud_shelf/google_cloud_shelf.dart';
 
