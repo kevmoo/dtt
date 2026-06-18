@@ -2,9 +2,9 @@
 
 ![Dart Terraform Triggers Project Banner](docs/assets/project_banner.png)
 
-[![Health Status](https://img.shields.io/badge/CI-passing-brightgreen.svg)](#)
-[![Security Audited](https://img.shields.io/badge/Security-Audited-blue.svg)](#)
-[![Dart Version](https://img.shields.io/badge/Dart-3.5%20%2B-blue.svg)](#)
+[![CI](https://github.com/kevmoo/dtt/actions/workflows/ci.yml/badge.svg)](https://github.com/kevmoo/dtt/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![Dart Version](https://img.shields.io/badge/Dart-3.12%20%2B-blue.svg)](#)
 [![Terraform Version](https://img.shields.io/badge/Terraform-1.5%20%2B-purple.svg)](#)
 
 A high-performance, developer-centric toolchain and library designed to make it effortless for Dart developers to deploy serverless (Google) Cloud Run services that respond to Eventarc triggers. 
@@ -101,7 +101,7 @@ You will immediately see your developer callback logging the deserialized event!
 ## 🛠️ System Prerequisites
 
 To run `dtt` on your local workstation, ensure you have installed:
-- **Dart SDK**: Version `3.5.0` or higher.
+- **Dart SDK**: Version `3.12.0` or higher.
 - **Protocol Buffers Compiler (`protoc`)**: Version `3.0` or higher, equipped with the Dart `protoc_plugin` package executable in your system path.
 - **Terraform CLI**: Version `1.5` or higher.
 - **Google Cloud SDK (`gcloud` CLI)**: Authorized to access target resource management APIs.
