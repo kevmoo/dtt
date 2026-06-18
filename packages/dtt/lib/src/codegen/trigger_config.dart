@@ -48,6 +48,39 @@ enum TriggerType {
       defaultPath: '/events/uploads',
     ),
   ),
+  gcsObjectDeleted(
+    identifier: 'google.cloud.storage.object.v1.deleted',
+    meta: TriggerTypeMeta._(
+      importPath:
+          'package:google_cloud_events/google/events/'
+          'cloud/storage/v1/data.pb.dart',
+      className: 'StorageObjectData',
+      enumName: 'CloudEventTrigger.gcsObjectDeleted',
+      defaultPath: '/events/uploads/deleted',
+    ),
+  ),
+  gcsObjectArchived(
+    identifier: 'google.cloud.storage.object.v1.archived',
+    meta: TriggerTypeMeta._(
+      importPath:
+          'package:google_cloud_events/google/events/'
+          'cloud/storage/v1/data.pb.dart',
+      className: 'StorageObjectData',
+      enumName: 'CloudEventTrigger.gcsObjectArchived',
+      defaultPath: '/events/uploads/archived',
+    ),
+  ),
+  gcsObjectMetadataUpdated(
+    identifier: 'google.cloud.storage.object.v1.metadataUpdated',
+    meta: TriggerTypeMeta._(
+      importPath:
+          'package:google_cloud_events/google/events/'
+          'cloud/storage/v1/data.pb.dart',
+      className: 'StorageObjectData',
+      enumName: 'CloudEventTrigger.gcsObjectMetadataUpdated',
+      defaultPath: '/events/uploads/metadata',
+    ),
+  ),
   firebaseAuthUserCreated(
     identifier: 'google.firebase.auth.user.v2.created',
     meta: TriggerTypeMeta._(
@@ -61,6 +94,19 @@ enum TriggerType {
       triggerLocation: 'global',
     ),
   ),
+  firebaseAuthUserDeleted(
+    identifier: 'google.firebase.auth.user.v2.deleted',
+    meta: TriggerTypeMeta._(
+      importPath:
+          'package:google_cloud_events/google/events/'
+          'firebase/auth/v1/data.pb.dart',
+      className: 'AuthEventData',
+      enumName: 'CloudEventTrigger.firebaseAuthUserDeleted',
+      defaultPath: '/events/auth/deleted',
+      isGlobal: true,
+      triggerLocation: 'global',
+    ),
+  ),
   firestoreDocumentWritten(
     identifier: 'google.cloud.firestore.document.v1.written',
     meta: TriggerTypeMeta._(
@@ -70,6 +116,45 @@ enum TriggerType {
       className: 'Struct',
       enumName: 'CloudEventTrigger.firestoreDocumentWritten',
       defaultPath: '/events/firestore',
+      triggerLocation: 'nam5',
+      eventDataContentType: 'application/protobuf',
+    ),
+  ),
+  firestoreDocumentCreated(
+    identifier: 'google.cloud.firestore.document.v1.created',
+    meta: TriggerTypeMeta._(
+      importPath:
+          'package:protobuf/well_known_types/google/protobuf/'
+          'struct.pb.dart',
+      className: 'Struct',
+      enumName: 'CloudEventTrigger.firestoreDocumentCreated',
+      defaultPath: '/events/firestore/created',
+      triggerLocation: 'nam5',
+      eventDataContentType: 'application/protobuf',
+    ),
+  ),
+  firestoreDocumentUpdated(
+    identifier: 'google.cloud.firestore.document.v1.updated',
+    meta: TriggerTypeMeta._(
+      importPath:
+          'package:protobuf/well_known_types/google/protobuf/'
+          'struct.pb.dart',
+      className: 'Struct',
+      enumName: 'CloudEventTrigger.firestoreDocumentUpdated',
+      defaultPath: '/events/firestore/updated',
+      triggerLocation: 'nam5',
+      eventDataContentType: 'application/protobuf',
+    ),
+  ),
+  firestoreDocumentDeleted(
+    identifier: 'google.cloud.firestore.document.v1.deleted',
+    meta: TriggerTypeMeta._(
+      importPath:
+          'package:protobuf/well_known_types/google/protobuf/'
+          'struct.pb.dart',
+      className: 'Struct',
+      enumName: 'CloudEventTrigger.firestoreDocumentDeleted',
+      defaultPath: '/events/firestore/deleted',
       triggerLocation: 'nam5',
       eventDataContentType: 'application/protobuf',
     ),
@@ -116,8 +201,12 @@ base class TriggerConfig {
     }) {
       final type = TriggerType.fromIdentifier(typeStr);
       return switch (type) {
-        TriggerType.gcsObjectFinalized => StorageTriggerConfig._(
+        TriggerType.gcsObjectFinalized ||
+        TriggerType.gcsObjectDeleted ||
+        TriggerType.gcsObjectArchived ||
+        TriggerType.gcsObjectMetadataUpdated => StorageTriggerConfig._(
           name: name,
+          type: type,
           path: path,
           handler: handler,
           bucket:
@@ -127,8 +216,12 @@ base class TriggerConfig {
                 'declaration.',
               )),
         ),
-        TriggerType.firestoreDocumentWritten => FirestoreTriggerConfig._(
+        TriggerType.firestoreDocumentWritten ||
+        TriggerType.firestoreDocumentCreated ||
+        TriggerType.firestoreDocumentUpdated ||
+        TriggerType.firestoreDocumentDeleted => FirestoreTriggerConfig._(
           name: name,
+          type: type,
           path: path,
           handler: handler,
           document:
@@ -139,7 +232,8 @@ base class TriggerConfig {
               )),
           database: node['database'] as String? ?? '(default)',
         ),
-        TriggerType.firebaseAuthUserCreated => TriggerConfig._(
+        TriggerType.firebaseAuthUserCreated ||
+        TriggerType.firebaseAuthUserDeleted => TriggerConfig._(
           name: name,
           type: type,
           path: path,
@@ -148,7 +242,8 @@ base class TriggerConfig {
       };
     }
     throw const FormatException(
-      'Trigger mappings must specify name, type, path, and handler callbacks.',
+      'Trigger mappings must specify name, type, path, and handler '
+      'callbacks.',
     );
   }
 }
@@ -156,10 +251,11 @@ base class TriggerConfig {
 final class StorageTriggerConfig extends TriggerConfig {
   const StorageTriggerConfig._({
     required super.name,
+    required super.type,
     required super.path,
     required super.handler,
     required this.bucket,
-  }) : super._(type: TriggerType.gcsObjectFinalized);
+  }) : super._();
 
   final String bucket;
 }
@@ -167,11 +263,12 @@ final class StorageTriggerConfig extends TriggerConfig {
 final class FirestoreTriggerConfig extends TriggerConfig {
   const FirestoreTriggerConfig._({
     required super.name,
+    required super.type,
     required super.path,
     required super.handler,
     required this.document,
     this.database = '(default)',
-  }) : super._(type: TriggerType.firestoreDocumentWritten);
+  }) : super._();
 
   final String document;
   final String database;

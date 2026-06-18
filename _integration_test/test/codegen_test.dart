@@ -277,5 +277,56 @@ triggers:
         check(mainTfContent).contains('team = "backend"');
       },
     );
+
+    test(
+      'Expanded catalog GCS deleted and Firestore created generate',
+      () async {
+        await d.dir('expanded_package', [
+          d.file('dtt.yaml', '''
+service:
+  name: expanded-triggers
+  project_id: expanded-proj
+  region: us-central1
+
+triggers:
+  - name: on-gcs-del
+    type: google.cloud.storage.object.v1.deleted
+    bucket: del-bucket
+    path: /events/del
+    handler: onDel
+  - name: on-fs-create
+    type: google.cloud.firestore.document.v1.created
+    document: items/{id}
+    path: /events/create
+    handler: onCreate
+'''),
+        ]).create();
+
+        final workspacePath = d.sandbox;
+        final packagePath = p.join(workspacePath, 'expanded_package');
+
+        await generateProject(
+          workspaceRoot: workspacePath,
+          packageDir: packagePath,
+        );
+
+        final serverFile = File(p.join(packagePath, 'bin', 'server.dart'));
+        check(await serverFile.exists()).isTrue();
+        final serverContent = await serverFile.readAsString();
+        check(serverContent).contains('CloudEventTrigger.gcsObjectDeleted');
+        check(
+          serverContent,
+        ).contains('CloudEventTrigger.firestoreDocumentCreated');
+
+        final mainTfFile = File(p.join(workspacePath, 'terraform', 'main.tf'));
+        final mainTfContent = await mainTfFile.readAsString();
+        check(
+          mainTfContent,
+        ).contains('value     = "google.cloud.storage.object.v1.deleted"');
+        check(
+          mainTfContent,
+        ).contains('value     = "google.cloud.firestore.document.v1.created"');
+      },
+    );
   });
 }

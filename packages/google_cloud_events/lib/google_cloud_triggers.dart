@@ -29,6 +29,27 @@ enum CloudEventTrigger<T extends GeneratedMessage> {
     create: Struct.create,
   ),
 
+  /// Triggered when a document is created in Cloud Firestore.
+  firestoreDocumentCreated<Struct>(
+    eventType: 'google.cloud.firestore.document.v1.created',
+    defaultPath: '/events/firestore/created',
+    create: Struct.create,
+  ),
+
+  /// Triggered when a document is updated in Cloud Firestore.
+  firestoreDocumentUpdated<Struct>(
+    eventType: 'google.cloud.firestore.document.v1.updated',
+    defaultPath: '/events/firestore/updated',
+    create: Struct.create,
+  ),
+
+  /// Triggered when a document is deleted in Cloud Firestore.
+  firestoreDocumentDeleted<Struct>(
+    eventType: 'google.cloud.firestore.document.v1.deleted',
+    defaultPath: '/events/firestore/deleted',
+    create: Struct.create,
+  ),
+
   /// Triggered when a new user is created in Firebase Authentication.
   firebaseAuthUserCreated<AuthEventData>(
     eventType: 'google.firebase.auth.user.v2.created',
@@ -47,6 +68,27 @@ enum CloudEventTrigger<T extends GeneratedMessage> {
   gcsObjectFinalized<StorageObjectData>(
     eventType: 'google.cloud.storage.object.v1.finalized',
     defaultPath: '/events/uploads',
+    create: StorageObjectData.create,
+  ),
+
+  /// Triggered when an object is deleted in Google Cloud Storage.
+  gcsObjectDeleted<StorageObjectData>(
+    eventType: 'google.cloud.storage.object.v1.deleted',
+    defaultPath: '/events/uploads/deleted',
+    create: StorageObjectData.create,
+  ),
+
+  /// Triggered when an object is archived in Google Cloud Storage.
+  gcsObjectArchived<StorageObjectData>(
+    eventType: 'google.cloud.storage.object.v1.archived',
+    defaultPath: '/events/uploads/archived',
+    create: StorageObjectData.create,
+  ),
+
+  /// Triggered when object metadata is updated in Google Cloud Storage.
+  gcsObjectMetadataUpdated<StorageObjectData>(
+    eventType: 'google.cloud.storage.object.v1.metadataUpdated',
+    defaultPath: '/events/uploads/metadata',
     create: StorageObjectData.create,
   );
 
