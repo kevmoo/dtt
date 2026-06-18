@@ -21,6 +21,7 @@ import 'package:protobuf/protobuf.dart';
 import 'package:shelf/shelf.dart';
 
 import 'cloudevent.dart';
+import 'constants.dart';
 
 /// A lightweight, static, high-performance webserver routing engine
 /// specifically tailored for resolving Eventarc triggers.
@@ -65,87 +66,42 @@ class DttEventRouter {
     final isPubSubBinding =
         request.requestedUri.queryParameters['__GCP_CloudEventsMode'] ==
         'CE_PUBSUB_BINDING';
+    final contentType = request.headers['content-type'] ?? '';
+    final isStructured = contentType.contains('application/cloudevents+json');
 
     String eventType;
-    Request processedRequest;
+    var targetRequest = request;
 
-    if (isPubSubBinding) {
-      // 1. Decode Structured Pub/Sub Push Envelope to fetch target eventType
+    if (isPubSubBinding || isStructured) {
       final rawBytes = await collectBytes(request.read());
       final bodyStr = utf8.decode(rawBytes);
       final envelope = jsonDecode(bodyStr) as Map<String, dynamic>;
 
-      final message = envelope['message'] as Map<String, dynamic>? ?? {};
-      final attributes = message['attributes'] as Map<String, dynamic>? ?? {};
-
-      eventType =
-          (attributes['ce-type'] ?? attributes['type']) as String? ?? '';
-
-      // Lookup mapped route entry
-      final routeKey = _buildRouteKey(path, eventType);
-      final entry = _routes[routeKey];
-      if (entry == null) {
-        return Response.notFound(
-          'Unsupported Eventarc trigger route: $path matching $eventType',
-        );
-      }
-
-      // Re-encapsulate request body for parser wrapping decoded JSON
-      processedRequest = Request(
-        request.method,
-        request.requestedUri,
-        headers: request.headers,
-        body: bodyStr,
-        context: request.context,
-      );
-
-      await entry.parseAndExecute(processedRequest);
-    } else {
-      final contentType = request.headers['content-type'] ?? '';
-      final isStructured = contentType.contains('application/cloudevents+json');
-
-      if (isStructured) {
-        final rawBytes = await collectBytes(request.read());
-        final bodyStr = utf8.decode(rawBytes);
-        final envelope = jsonDecode(bodyStr) as Map<String, dynamic>;
-
-        eventType = envelope['type'] as String? ?? '';
-
-        // Lookup mapped route entry
-        final routeKey = _buildRouteKey(path, eventType);
-        final entry = _routes[routeKey];
-        if (entry == null) {
-          return Response.notFound(
-            'Unsupported Eventarc trigger route: $path matching $eventType',
-          );
-        }
-
-        // Re-encapsulate request body for parser wrapping decoded JSON
-        processedRequest = Request(
-          request.method,
-          request.requestedUri,
-          headers: request.headers,
-          body: bodyStr,
-          context: request.context,
-        );
-
-        await entry.parseAndExecute(processedRequest);
+      if (isPubSubBinding) {
+        final message = envelope['message'] as Map<String, dynamic>? ?? {};
+        final attrs = message['attributes'] as Map<String, dynamic>? ?? {};
+        eventType = (attrs['ce-type'] ?? attrs['type']) as String? ?? '';
       } else {
-        // Binary mode metadata is sent in HTTP headers directly
-        eventType = request.headers['ce-type'] ?? '';
-
-        // Lookup mapped route entry
-        final routeKey = _buildRouteKey(path, eventType);
-        final entry = _routes[routeKey];
-        if (entry == null) {
-          return Response.notFound(
-            'Unsupported Eventarc trigger route: $path matching $eventType',
-          );
-        }
-
-        await entry.parseAndExecute(request);
+        eventType = envelope['type'] as String? ?? '';
       }
+
+      targetRequest = request.change(
+        body: bodyStr,
+        context: {envelopeContextKey: envelope},
+      );
+    } else {
+      eventType = request.headers['ce-type'] ?? '';
     }
+
+    final routeKey = _buildRouteKey(path, eventType);
+    final entry = _routes[routeKey];
+    if (entry == null) {
+      return Response.notFound(
+        'Unsupported Eventarc trigger route: $path matching $eventType',
+      );
+    }
+
+    await entry.parseAndExecute(targetRequest);
 
     return Response.ok('Event triggering execution complete');
   }

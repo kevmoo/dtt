@@ -19,6 +19,8 @@ import 'package:async/async.dart';
 import 'package:protobuf/protobuf.dart';
 import 'package:shelf/shelf.dart';
 
+import 'constants.dart';
+
 /// Represents a standardized, strongly-typed CloudEvent envelope payload
 /// context.
 ///
@@ -74,8 +76,7 @@ class CloudEvent<T extends GeneratedMessage> {
     final jsonMap = <String, dynamic>{};
 
     if (isPubSubBinding) {
-      final bodyStr = await request.readAsString();
-      final envelope = jsonDecode(bodyStr) as Map<String, dynamic>;
+      final envelope = await request._readEnvelope();
 
       final message = envelope['message'] as Map<String, dynamic>? ?? {};
       final attributes = message['attributes'] as Map<String, dynamic>? ?? {};
@@ -112,8 +113,7 @@ class CloudEvent<T extends GeneratedMessage> {
       final isStructured = contentType.contains('application/cloudevents+json');
 
       if (isStructured) {
-        final bodyStr = await request.readAsString();
-        final envelope = jsonDecode(bodyStr) as Map<String, dynamic>;
+        final envelope = await request._readEnvelope();
         jsonMap.addAll(envelope);
 
         final data = create();
@@ -169,5 +169,14 @@ class CloudEvent<T extends GeneratedMessage> {
           : null,
       data: jsonMap['data_model'] as T,
     );
+  }
+}
+
+extension on Request {
+  Future<Map<String, dynamic>> _readEnvelope() async {
+    final cached = context[envelopeContextKey];
+    if (cached is Map<String, dynamic>) return cached;
+    final bodyStr = await readAsString();
+    return jsonDecode(bodyStr) as Map<String, dynamic>;
   }
 }
