@@ -120,6 +120,7 @@ Future<void> main() async {
 
   final eventsEntries = <String>[];
   final dttEntries = <String>[];
+  final readmeRows = <String>[];
 
   for (final line in lines) {
     ServiceFamily? fam;
@@ -142,6 +143,8 @@ Future<void> main() async {
         ? ''
         : '/${action == 'metadataUpdated' ? 'metadata' : action}';
     final routePath = fam.basePath + pathSuffix;
+
+    readmeRows.add('| `$line` | `${fam.protoClass}` | `$routePath` |');
 
     eventsEntries.add('''
   /// Triggered on event: $line
@@ -237,6 +240,29 @@ ${dttEntries.join(',\n')};
   }
 }
 ''');
+
+  final readmeFile = File('packages/google_cloud_events/README.md');
+  if (readmeFile.existsSync()) {
+    const startMarker = '<!-- CATALOG_TABLE_START -->';
+    const endMarker = '<!-- CATALOG_TABLE_END -->';
+    final content = readmeFile.readAsStringSync();
+    final sIdx = content.indexOf(startMarker);
+    final eIdx = content.indexOf(endMarker);
+    if (sIdx != -1 && eIdx != -1) {
+      final table = [
+        '| Eventarc Event Type | Protobuf Payload Class | Default Path |',
+        '| :--- | :--- | :--- |',
+        ...readmeRows,
+      ].join('\n');
+      final updated =
+          '''
+${content.substring(0, sIdx + startMarker.length)}
+$table
+${content.substring(eIdx)}''';
+      readmeFile.writeAsStringSync(updated);
+      print('📝 Updated packages/google_cloud_events/README.md catalog table.');
+    }
+  }
 
   print('📦 Running dart format...');
   await Process.run('dart', ['format', eventsFile.path, dttFile.path]);
