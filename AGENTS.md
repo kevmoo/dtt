@@ -37,44 +37,18 @@ dart_terraform_triggers/
 
 ---
 
-## 📋 The Step-by-Step E2E Milestones
+## 🛠️ Development & Tooling Guidelines
 
-We will tackle this vertical path in four structured, lean milestones:
+### Running Integration Tests
+* Always run integration tests before declaring work complete:
+  ```bash
+  cd _integration_test && dart test
+  ```
 
-### Milestone 1: Implement the Unified CloudEvent Envelope Parser (`dtt_runtime`)
-*   **Action**: Write the core parser in `packages/dtt_runtime/lib/cloudevents.dart`.
-*   **Scope**:
-    *   Define the generic `CloudEvent<T>` mapping envelope structure.
-    *   Implement binary header check: resolve metadata sent in HTTP headers (e.g., `ce-type`, `ce-source`, `ce-id`) and read raw bytes from request stream.
-    *   Implement structured JSON check: decode request payload as JSON and unpack properties out of standard envelopes.
-    *   Integrate Shelf pipeline integrations to pass typed events cleanly to developers callbacks.
+### Updating Event Catalog & Schemas
+When adding new Eventarc triggers or updating upstream Protobuf definitions, run the maintainer scripts from the monorepo root:
+1. **Sync Protos (Stage 1):** `dart run tool/sync_protos.dart` (reads `catalog/protobuf_source.yaml`).
+2. **Generate Catalog (Stage 2):** `dart run tool/generate_catalog.dart` (reads `catalog/supported_triggers.txt`).
 
-### Milestone 2: Mount Target Event Models (`google_cloud_events`)
-*   **Action**: Compile and package only the GCS payload structures.
-*   **Scope**:
-    *   Download standard GCS proto specs (`google/events/cloud/storage/v1/data.proto`) and its direct dependencies.
-    *   Invoke `protoc` and compile `StorageObjectData` model definitions into `packages/google_cloud_events`.
-    *   Expose standard imports so it's ready to be depended upon by our runtime pipelines.
-
-### Milestone 3: Develop the CLI Scaffold Generator (`dtt`)
-*   **Action**: Program the code-generator mapping configuration inputs.
-*   **Scope**:
-    *   Read local `dtt.yaml` declaring the GCS trigger.
-    *   Synthesize standard `bin/server.dart` entrypoint. This server will use **`package:google_cloud_shelf`** under the hood (instantly gaining structured JSON logs, trace correlations, and SIGTERM terminate signals gracefully) and mount the `dtt_runtime` middleware mapped to `/events/uploads`.
-    *   Stub out the type-safe developer handler inside `lib/src/handlers/on_upload.dart` receiving `CloudEvent<StorageObjectData>`.
-    *   Generate secure, minimal-privilege Terraform manifests (`main.tf`, `variables.tf`, `outputs.tf`) mapping trigger resources and run invokers.
-
-### Milestone 4: Hermetic E2E Webhook Validation Test
-*   **Action**: Verify the complete vertical flow using robust integration testing under the root `test/` workspace.
-*   **Scope**:
-    *   Construct an isolated test runner matching the target developer workflow.
-    *   Programmatically generate the mock templates under a temporary directory using `package:test_descriptor`.
-    *   Spin up the auto-generated static server locally on the workstation.
-    *   Simulate mock GCP Eventarc pushes using `package:http` (spamming both binary header request envelopes and structured JSON request bodies).
-    *   Assert that the server successfully deserializes the payloads, verifies types, correlates logs, and triggers the callback handler with 100% correct attributes.
-
----
-
-## 🗺️ Execution Strategy
-
-By adopting this lean sequence, **we can get the full E2E vertical integration working locally in a single, focused session**, proving the complete runtime, code-generation, and infrastructure architectures under a pristine testing validation. Once this is solid, we can begin filling in the remaining tooling commands, deployments CLI boundaries, and catalog mappings.
+### Verification
+* Run `dart format .` and `dart analyze .` before finalizing changes.
