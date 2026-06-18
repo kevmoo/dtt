@@ -51,6 +51,16 @@ enum TriggerType {
       eventDataContentType: 'application/protobuf',
     ),
   ),
+  pubsubTopicMessagePublished(
+    identifier: 'google.cloud.pubsub.topic.v1.messagePublished',
+    meta: TriggerTypeMeta._(
+      importPath:
+          'package:google_cloud_events/google/events/cloud/pubsub/v1/data.pb.dart',
+      className: 'MessagePublishedData',
+      enumName: 'CloudEventTrigger.pubsubTopicMessagePublished',
+      defaultPath: '/events/pubsub',
+    ),
+  ),
   gcsObjectArchived(
     identifier: 'google.cloud.storage.object.v1.archived',
     meta: TriggerTypeMeta._(
@@ -111,6 +121,30 @@ enum TriggerType {
       className: 'AuthEventData',
       enumName: 'CloudEventTrigger.firebaseAuthUserDeleted',
       defaultPath: '/events/auth/deleted',
+      isGlobal: true,
+      triggerLocation: 'global',
+    ),
+  ),
+  firebaseAlertsPublished(
+    identifier: 'google.firebase.firebasealerts.alerts.v1.published',
+    meta: TriggerTypeMeta._(
+      importPath:
+          'package:google_cloud_events/google/events/firebase/firebasealerts/v1/data.pb.dart',
+      className: 'AlertData',
+      enumName: 'CloudEventTrigger.firebaseAlertsPublished',
+      defaultPath: '/events/alerts',
+      isGlobal: true,
+      triggerLocation: 'global',
+    ),
+  ),
+  firebaseRemoteConfigUpdated(
+    identifier: 'google.firebase.remoteconfig.v1.updated',
+    meta: TriggerTypeMeta._(
+      importPath:
+          'package:google_cloud_events/google/events/firebase/remoteconfig/v1/data.pb.dart',
+      className: 'RemoteConfigEventData',
+      enumName: 'CloudEventTrigger.firebaseRemoteConfigUpdated',
+      defaultPath: '/events/remoteconfig',
       isGlobal: true,
       triggerLocation: 'global',
     ),

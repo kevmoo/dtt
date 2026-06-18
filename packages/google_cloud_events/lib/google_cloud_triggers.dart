@@ -2,8 +2,11 @@
 import 'package:protobuf/protobuf.dart';
 import 'package:protobuf/well_known_types/google/protobuf/struct.pb.dart';
 
+import 'google/events/cloud/pubsub/v1/data.pb.dart';
 import 'google/events/cloud/storage/v1/data.pb.dart';
 import 'google/events/firebase/auth/v1/data.pb.dart';
+import 'google/events/firebase/firebasealerts/v1/data.pb.dart';
+import 'google/events/firebase/remoteconfig/v1/data.pb.dart';
 
 /// Centralized, strongly-typed Enum catalog resolving GCP and Firebase
 /// triggers.
@@ -35,6 +38,13 @@ enum CloudEventTrigger<T extends GeneratedMessage> {
     eventType: 'google.cloud.firestore.document.v1.written',
     defaultPath: '/events/firestore',
     create: Struct.create,
+  ),
+
+  /// Triggered on event: google.cloud.pubsub.topic.v1.messagePublished
+  pubsubTopicMessagePublished<MessagePublishedData>(
+    eventType: 'google.cloud.pubsub.topic.v1.messagePublished',
+    defaultPath: '/events/pubsub',
+    create: MessagePublishedData.create,
   ),
 
   /// Triggered on event: google.cloud.storage.object.v1.archived
@@ -77,6 +87,20 @@ enum CloudEventTrigger<T extends GeneratedMessage> {
     eventType: 'google.firebase.auth.user.v2.deleted',
     defaultPath: '/events/auth/deleted',
     create: AuthEventData.create,
+  ),
+
+  /// Triggered on event: google.firebase.firebasealerts.alerts.v1.published
+  firebaseAlertsPublished<AlertData>(
+    eventType: 'google.firebase.firebasealerts.alerts.v1.published',
+    defaultPath: '/events/alerts',
+    create: AlertData.create,
+  ),
+
+  /// Triggered on event: google.firebase.remoteconfig.v1.updated
+  firebaseRemoteConfigUpdated<RemoteConfigEventData>(
+    eventType: 'google.firebase.remoteconfig.v1.updated',
+    defaultPath: '/events/remoteconfig',
+    create: RemoteConfigEventData.create,
   );
 
   /// Unique Eventarc GCP/Firebase trigger event type.

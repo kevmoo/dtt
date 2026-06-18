@@ -1,7 +1,5 @@
 // Copyright 2026 Google LLC
 
-// ignore_for_file: unreachable_from_main
-
 import 'dart:io';
 
 final class ServiceFamily {
@@ -29,6 +27,16 @@ final class ServiceFamily {
 }
 
 const families = {
+  'google.cloud.pubsub': ServiceFamily(
+    enumPrefix: 'pubsubTopic',
+    protoClass: 'MessagePublishedData',
+    eventsImport: 'google/events/cloud/pubsub/v1/data.pb.dart',
+    dttImport:
+        'package:google_cloud_events/google/events/'
+        'cloud/pubsub/v1/data.pb.dart',
+    basePath: '/events/pubsub',
+    baselineAction: 'messagePublished',
+  ),
   'google.cloud.storage': ServiceFamily(
     enumPrefix: 'gcsObject',
     protoClass: 'StorageObjectData',
@@ -62,6 +70,30 @@ const families = {
         'firebase/auth/v1/data.pb.dart',
     basePath: '/events/auth',
     baselineAction: 'created',
+    isGlobal: true,
+    triggerLocation: 'global',
+  ),
+  'google.firebase.firebasealerts': ServiceFamily(
+    enumPrefix: 'firebaseAlerts',
+    protoClass: 'AlertData',
+    eventsImport: 'google/events/firebase/firebasealerts/v1/data.pb.dart',
+    dttImport:
+        'package:google_cloud_events/google/events/'
+        'firebase/firebasealerts/v1/data.pb.dart',
+    basePath: '/events/alerts',
+    baselineAction: 'published',
+    isGlobal: true,
+    triggerLocation: 'global',
+  ),
+  'google.firebase.remoteconfig': ServiceFamily(
+    enumPrefix: 'firebaseRemoteConfig',
+    protoClass: 'RemoteConfigEventData',
+    eventsImport: 'google/events/firebase/remoteconfig/v1/data.pb.dart',
+    dttImport:
+        'package:google_cloud_events/google/events/'
+        'firebase/remoteconfig/v1/data.pb.dart',
+    basePath: '/events/remoteconfig',
+    baselineAction: 'updated',
     isGlobal: true,
     triggerLocation: 'global',
   ),
@@ -139,6 +171,14 @@ ${metaArgs.map((a) => '      $a,').join('\n')}
   )''');
   }
 
+  final uniqueImports =
+      families.values
+          .map((f) => f.eventsImport)
+          .where((i) => !i.startsWith('package:protobuf/'))
+          .toSet()
+          .toList()
+        ..sort();
+
   final eventsFile = File(
     'packages/google_cloud_events/lib/google_cloud_triggers.dart',
   );
@@ -147,8 +187,7 @@ ${metaArgs.map((a) => '      $a,').join('\n')}
 import 'package:protobuf/protobuf.dart';
 import 'package:protobuf/well_known_types/google/protobuf/struct.pb.dart';
 
-import 'google/events/cloud/storage/v1/data.pb.dart';
-import 'google/events/firebase/auth/v1/data.pb.dart';
+${uniqueImports.map((i) => "import '$i';").join('\n')}
 
 /// Centralized, strongly-typed Enum catalog resolving GCP and Firebase
 /// triggers.

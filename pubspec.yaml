@@ -13,7 +13,5 @@ workspace:
   - packages/google_cloud_events
 
 dev_dependencies:
-  code_builder: ^4.11.0
   dart_flutter_team_lints: ^3.5.2
-  path: ^1.9.0
   yaml: ^3.1.2

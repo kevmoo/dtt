@@ -3,5 +3,8 @@
 pinned_sha: 6fda292a458d2d1a534e6faaf8bd766cf9e32eb6
 
 proto_targets:
+  - google/events/cloud/pubsub/v1/data.proto
   - google/events/cloud/storage/v1/data.proto
   - google/events/firebase/auth/v1/data.proto
+  - google/events/firebase/firebasealerts/v1/data.proto
+  - google/events/firebase/remoteconfig/v1/data.proto

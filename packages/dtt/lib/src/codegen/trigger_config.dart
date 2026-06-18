@@ -93,8 +93,7 @@ base class TriggerConfig {
               )),
           database: node['database'] as String? ?? '(default)',
         ),
-        TriggerType.firebaseAuthUserCreated ||
-        TriggerType.firebaseAuthUserDeleted => TriggerConfig._(
+        _ => TriggerConfig._(
           name: name,
           type: type,
           path: path,
