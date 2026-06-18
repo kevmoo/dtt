@@ -34,45 +34,17 @@ data "google_cloud_run_v2_service" "service" {
 data "google_project" "project" {
 }
 
-# E2E Source-Based deployment compiler utilizing Google Buildpacks preventing local codebase pollution
+# E2E Source-Based deployment compiler utilizing Dart helper script preventing local codebase pollution and ensuring Windows/POSIX support
 resource "null_resource" "cloud_run_deploy" {
   triggers = {
     config_hash = fileexists("${path.module}/../dtt.yaml") ? filesha256("${path.module}/../dtt.yaml") : "default"
     server_hash = fileexists("${path.module}/../bin/server.dart") ? filesha256("${path.module}/../bin/server.dart") : "default"
+    deploy_hash = fileexists("${path.module}/../bin/deploy.dart") ? filesha256("${path.module}/../bin/deploy.dart") : "default"
   }
 
   provisioner "local-exec" {
-    command = <<EOT
-      # 1. Create a clean, isolated temporary staging directory inside system /tmp!
-      STAGE_DIR=$(mktemp -d -t dtt-build-XXXXXX)
-      echo "📡 Created isolated temporary staging directory: $STAGE_DIR"
-
-      # 2. Structure the clean target folders
-      mkdir -p $STAGE_DIR/bin
-
-      # 3. Cross-compile the Dart server to a standalone native Linux AOT ELF binary!
-      cd ${path.module}/../examples/firebase_auth_example
-      dart pub get
-      dart compile exe bin/server.dart \
-        -o $STAGE_DIR/bin/server \
-        --target-os linux \
-        --target-arch x64
-
-      # 4. Deploy the compiled temp directory directly to Cloud Run using osonly base image!
-      /Users/kevmoo/.local/share/google-cloud-sdk/bin/gcloud beta run deploy gcs-triggers \
-        --source=$STAGE_DIR \
-        --region=${var.region} \
-        --ingress=internal \
-        --project=${var.project_id} \
-        --no-build \
-        --base-image=osonly24 \
-        --command=bin/server \
-        --quiet
-
-      # 5. Clean up the temporary staging directory cleanly!
-      rm -rf $STAGE_DIR
-
-EOT
+    working_dir = "${path.module}/../examples/firebase_auth_example"
+    command     = "dart run bin/deploy.dart /Users/kevmoo/.local/share/google-cloud-sdk/bin/gcloud gcs-triggers ${var.project_id} ${var.region}"
   }
 }
 

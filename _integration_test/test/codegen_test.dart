@@ -64,6 +64,11 @@ triggers:
         check(serverContent).contains('void main() async {');
         check(serverContent).contains('await serveHandler(pipeline);');
 
+        final deployFile = File(p.join(packagePath, 'bin', 'deploy.dart'));
+        check(await deployFile.exists()).isTrue();
+        final deployContent = await deployFile.readAsString();
+        check(deployContent).contains('Directory.systemTemp');
+
         // 4. Assert generated Main Terraform manifest is pristine
         final mainTfFile = File(p.join(workspacePath, 'terraform', 'main.tf'));
         check(await mainTfFile.exists()).isTrue();
