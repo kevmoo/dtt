@@ -1,5 +1,7 @@
 name: _integration_test
-description: "Hermetic vertical end-to-end integration webhook testing suite for dtt and dtt_runtime."
+description: >-
+  Hermetic vertical end-to-end integration webhook testing suite for dtt and
+  dtt_runtime.
 version: 0.1.0-wip
 publish_to: none # Local test container package, never publish to pub.dev
 

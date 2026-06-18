@@ -1,5 +1,7 @@
 name: dart_terraform_triggers_workspace
-description: "Workspace root for the Dart Terraform Triggers (dtt) toolchain and library ecosystem."
+description: >-
+  Workspace root for the Dart Terraform Triggers (dtt) toolchain and library
+  ecosystem.
 publish_to: none
 
 environment:

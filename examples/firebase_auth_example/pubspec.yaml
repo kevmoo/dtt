@@ -1,5 +1,7 @@
 name: firebase_auth_example
-description: "Example serverless microservice showing how to deploy Dart Cloud Run services triggered by Firebase Auth created events."
+description: >-
+  Example serverless microservice showing how to deploy Dart Cloud Run services
+  triggered by Firebase Auth created events.
 version: 0.1.0-wip
 publish_to: none # Example app container package, never publish to pub.dev
 

@@ -1,5 +1,7 @@
 name: dtt_runtime
-description: "Core runtime event parsing and Shelf-based routing engine for Dart Terraform Triggers (dtt)."
+description: >-
+  Core runtime event parsing and Shelf-based routing engine for Dart Terraform
+  Triggers (dtt).
 version: 0.1.0-wip
 
 environment:
