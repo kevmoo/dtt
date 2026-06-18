@@ -230,4 +230,4 @@ We strongly recommend **Option 2: Reimagine / Replace with a Static Micro-Engine
 
 It eliminates the single largest friction point of the existing framework—the reliance on Dart's complex, slow annotation `build_runner`—while providing **uncompromising type-safety**, **instantaneous local runs**, and **maximum runtime performance** for serverless scaling. 
 
-This approach fully aligns with Dart 3.5+'s modern AOT target optimization paradigms, giving developers a premium, high-fidelity experience that feels light years ahead of the current monorepo's manual patterns.
+This approach fully aligns with Dart 3.12+'s modern AOT target optimization paradigms, giving developers a premium, high-fidelity experience that feels light years ahead of the current monorepo's manual patterns.
