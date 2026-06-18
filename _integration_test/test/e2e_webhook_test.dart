@@ -272,5 +272,17 @@ void main() {
         check(badDataRes.body).contains('Expected a JSON object');
       },
     );
+
+    test('Returns 400 Bad Request on invalid UTF-8 byte streams', () async {
+      final uri = Uri.parse('http://localhost:$port/events/uploads');
+
+      final badUtf8Res = await http.post(
+        uri,
+        headers: {'content-type': 'application/cloudevents+json'},
+        body: [0xFF, 0xFE, 0xFD],
+      );
+      check(badUtf8Res.statusCode).equals(400);
+      check(badUtf8Res.body).contains('malformed JSON');
+    });
   });
 }

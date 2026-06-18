@@ -74,9 +74,10 @@ class DttEventRouter {
 
     if (isPubSubBinding || isStructured) {
       final rawBytes = await collectBytes(request.read());
-      final bodyStr = utf8.decode(rawBytes);
       final Map<String, dynamic> envelope;
+      final String bodyStr;
       try {
+        bodyStr = utf8.decode(rawBytes);
         final decoded = jsonDecode(bodyStr);
         if (decoded is! Map<String, dynamic>) {
           throw const BadEnvelopeException(
