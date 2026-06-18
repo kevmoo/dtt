@@ -32,4 +32,4 @@ their associated schema metadata:
 
 This package is automatically maintained by our catalog generation engine. To
 add new Eventarc triggers or sync upstream Protobuf models, refer to the
-monorepo [tooling guide](../../tool/README.md).
+monorepo [tooling guide](https://github.com/kevmoo/dtt/tree/main/tool).
