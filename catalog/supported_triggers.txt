@@ -1,0 +1,10 @@
+google.cloud.firestore.document.v1.created
+google.cloud.firestore.document.v1.deleted
+google.cloud.firestore.document.v1.updated
+google.cloud.firestore.document.v1.written
+google.cloud.storage.object.v1.archived
+google.cloud.storage.object.v1.deleted
+google.cloud.storage.object.v1.finalized
+google.cloud.storage.object.v1.metadataUpdated
+google.firebase.auth.user.v2.created
+google.firebase.auth.user.v2.deleted

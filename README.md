@@ -21,6 +21,8 @@ We have laid out a structured set of technical plans, architecture specification
 *   **[Technical Architecture & System Design Specification](docs/architecture.md)**: Deep dive into the data flows, OIDC authentication, schema resolvers, code-gen mechanisms, and custom routing engines.
 *   **[Security Plan & Threat Model Specification](docs/threat_model.md)**: High-fidelity security mapping detailing trust boundaries, privileged operations, shell command sanitization, and ingress lockdowns.
 *   **[Phased Implementation & Verification Plan](docs/implementation_plan.md)**: Step-by-step developer task breakdowns, unit testing coverage plans, hermetic CLI integration tests, and automated vulnerability scanning guidelines.
+*   **[Maintainer Toolchain Guide](tool/README.md)**: Execution sequence and
+    architecture for our two-stage offline catalog codegen scripts.
 
 ---
 
@@ -74,6 +76,25 @@ The CLI automatically:
 2. Pushes your container to Google Artifact Registry.
 3. Generates standardized, secure Terraform configurations.
 4. Invokes `terraform init` and `terraform apply` to safely provision the Trigger and Cloud Run services with minimum-privilege service account scopes and closed ingress configurations.
+
+### 5. Live Cloud Verification
+Once deployed, verify your event routing pipeline immediately using two simple
+terminal commands:
+
+#### Trigger the Event (Trivial GCS write)
+Pipe any test snippet directly into your Terraform-provisioned bucket:
+```bash
+echo "Hello live Cloud Run trigger!" | gcloud storage cp - gs://my-bucket/ping.txt
+```
+*(Finalizing the upload fires `google.cloud.storage.object.v1.finalized` via
+Eventarc).*
+
+#### Verify Handler Execution (Cloud Logging)
+Read your container's stdout structured log stream in real-time:
+```bash
+gcloud beta run services logs read gcs-uploader --limit=5
+```
+You will immediately see your developer callback logging the deserialized event!
 
 ---
 

@@ -14,6 +14,8 @@
 
 import 'package:yaml/yaml.dart';
 
+part 'trigger_config.g.dart';
+
 /// Mapping metadata tracking trigger types, import URIs, and class definitions.
 final class TriggerTypeMeta {
   final String importPath;
@@ -33,147 +35,6 @@ final class TriggerTypeMeta {
     this.triggerLocation,
     this.eventDataContentType,
   });
-}
-
-/// Supported Eventarc trigger event types and their associated schema metadata.
-enum TriggerType {
-  gcsObjectFinalized(
-    identifier: 'google.cloud.storage.object.v1.finalized',
-    meta: TriggerTypeMeta._(
-      importPath:
-          'package:google_cloud_events/google/events/'
-          'cloud/storage/v1/data.pb.dart',
-      className: 'StorageObjectData',
-      enumName: 'CloudEventTrigger.gcsObjectFinalized',
-      defaultPath: '/events/uploads',
-    ),
-  ),
-  gcsObjectDeleted(
-    identifier: 'google.cloud.storage.object.v1.deleted',
-    meta: TriggerTypeMeta._(
-      importPath:
-          'package:google_cloud_events/google/events/'
-          'cloud/storage/v1/data.pb.dart',
-      className: 'StorageObjectData',
-      enumName: 'CloudEventTrigger.gcsObjectDeleted',
-      defaultPath: '/events/uploads/deleted',
-    ),
-  ),
-  gcsObjectArchived(
-    identifier: 'google.cloud.storage.object.v1.archived',
-    meta: TriggerTypeMeta._(
-      importPath:
-          'package:google_cloud_events/google/events/'
-          'cloud/storage/v1/data.pb.dart',
-      className: 'StorageObjectData',
-      enumName: 'CloudEventTrigger.gcsObjectArchived',
-      defaultPath: '/events/uploads/archived',
-    ),
-  ),
-  gcsObjectMetadataUpdated(
-    identifier: 'google.cloud.storage.object.v1.metadataUpdated',
-    meta: TriggerTypeMeta._(
-      importPath:
-          'package:google_cloud_events/google/events/'
-          'cloud/storage/v1/data.pb.dart',
-      className: 'StorageObjectData',
-      enumName: 'CloudEventTrigger.gcsObjectMetadataUpdated',
-      defaultPath: '/events/uploads/metadata',
-    ),
-  ),
-  firebaseAuthUserCreated(
-    identifier: 'google.firebase.auth.user.v2.created',
-    meta: TriggerTypeMeta._(
-      importPath:
-          'package:google_cloud_events/google/events/'
-          'firebase/auth/v1/data.pb.dart',
-      className: 'AuthEventData',
-      enumName: 'CloudEventTrigger.firebaseAuthUserCreated',
-      defaultPath: '/events/auth',
-      isGlobal: true,
-      triggerLocation: 'global',
-    ),
-  ),
-  firebaseAuthUserDeleted(
-    identifier: 'google.firebase.auth.user.v2.deleted',
-    meta: TriggerTypeMeta._(
-      importPath:
-          'package:google_cloud_events/google/events/'
-          'firebase/auth/v1/data.pb.dart',
-      className: 'AuthEventData',
-      enumName: 'CloudEventTrigger.firebaseAuthUserDeleted',
-      defaultPath: '/events/auth/deleted',
-      isGlobal: true,
-      triggerLocation: 'global',
-    ),
-  ),
-  firestoreDocumentWritten(
-    identifier: 'google.cloud.firestore.document.v1.written',
-    meta: TriggerTypeMeta._(
-      importPath:
-          'package:protobuf/well_known_types/google/protobuf/'
-          'struct.pb.dart',
-      className: 'Struct',
-      enumName: 'CloudEventTrigger.firestoreDocumentWritten',
-      defaultPath: '/events/firestore',
-      triggerLocation: 'nam5',
-      eventDataContentType: 'application/protobuf',
-    ),
-  ),
-  firestoreDocumentCreated(
-    identifier: 'google.cloud.firestore.document.v1.created',
-    meta: TriggerTypeMeta._(
-      importPath:
-          'package:protobuf/well_known_types/google/protobuf/'
-          'struct.pb.dart',
-      className: 'Struct',
-      enumName: 'CloudEventTrigger.firestoreDocumentCreated',
-      defaultPath: '/events/firestore/created',
-      triggerLocation: 'nam5',
-      eventDataContentType: 'application/protobuf',
-    ),
-  ),
-  firestoreDocumentUpdated(
-    identifier: 'google.cloud.firestore.document.v1.updated',
-    meta: TriggerTypeMeta._(
-      importPath:
-          'package:protobuf/well_known_types/google/protobuf/'
-          'struct.pb.dart',
-      className: 'Struct',
-      enumName: 'CloudEventTrigger.firestoreDocumentUpdated',
-      defaultPath: '/events/firestore/updated',
-      triggerLocation: 'nam5',
-      eventDataContentType: 'application/protobuf',
-    ),
-  ),
-  firestoreDocumentDeleted(
-    identifier: 'google.cloud.firestore.document.v1.deleted',
-    meta: TriggerTypeMeta._(
-      importPath:
-          'package:protobuf/well_known_types/google/protobuf/'
-          'struct.pb.dart',
-      className: 'Struct',
-      enumName: 'CloudEventTrigger.firestoreDocumentDeleted',
-      defaultPath: '/events/firestore/deleted',
-      triggerLocation: 'nam5',
-      eventDataContentType: 'application/protobuf',
-    ),
-  );
-
-  const TriggerType({required this.identifier, required this.meta});
-
-  final String identifier;
-  final TriggerTypeMeta meta;
-
-  static TriggerType fromIdentifier(String id) {
-    for (final val in values) {
-      if (val.identifier == id) return val;
-    }
-    throw UnsupportedError(
-      'Target Eventarc trigger type [$id] is not registered in schemas '
-      'catalog.',
-    );
-  }
 }
 
 /// Strongly typed representation of a declared Eventarc trigger in dtt.yaml.
