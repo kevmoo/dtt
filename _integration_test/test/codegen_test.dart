@@ -229,5 +229,53 @@ triggers:
         check(mainTfContent).contains('log_type = "DATA_READ"');
       },
     );
+
+    test(
+      'Custom labels in dtt.yaml bakes into main.tf and deploy.dart',
+      () async {
+        await d.dir('label_package', [
+          d.file('dtt.yaml', '''
+service:
+  name: label-triggers
+  project_id: label-proj
+  region: us-central1
+  labels:
+    env: staging
+    team: backend
+
+triggers:
+  - name: my-upload
+    type: google.cloud.storage.object.v1.finalized
+    bucket: my-upload-bucket
+    path: /events/uploads
+    handler: onUpload
+'''),
+        ]).create();
+
+        final workspacePath = d.sandbox;
+        final packagePath = p.join(workspacePath, 'label_package');
+
+        await generateProject(
+          workspaceRoot: workspacePath,
+          packageDir: packagePath,
+        );
+
+        final deployFile = File(p.join(packagePath, 'bin', 'deploy.dart'));
+        check(await deployFile.exists()).isTrue();
+        final deployContent = await deployFile.readAsString();
+        check(deployContent).contains(
+          '--labels=managed_by=dart_terraform_triggers,'
+          'env=staging,team=backend',
+        );
+
+        final mainTfFile = File(p.join(workspacePath, 'terraform', 'main.tf'));
+        check(await mainTfFile.exists()).isTrue();
+        final mainTfContent = await mainTfFile.readAsString();
+        check(mainTfContent).contains('default_labels = {');
+        check(mainTfContent).contains('managed_by = "dart_terraform_triggers"');
+        check(mainTfContent).contains('env = "staging"');
+        check(mainTfContent).contains('team = "backend"');
+      },
+    );
   });
 }

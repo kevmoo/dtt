@@ -14,8 +14,11 @@ terraform {
 }
 
 provider "google" {
-  project = var.project_id
-  region  = var.region
+  project        = var.project_id
+  region         = var.region
+  default_labels = {
+    managed_by = "dart_terraform_triggers"
+  }
 }
 
 # Retrieve live metadata of our pre-deployed OS-only service

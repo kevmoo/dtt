@@ -71,6 +71,7 @@ Future<void> main(List<String> args) async {
       '--no-build',
       '--base-image=osonly24',
       '--command=bin/$exeName',
+      '--labels=managed_by=dart_terraform_triggers',
       '--quiet',
     ]);
     if (deployRes.exitCode != 0) {
