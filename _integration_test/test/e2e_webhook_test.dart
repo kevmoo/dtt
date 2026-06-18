@@ -197,5 +197,30 @@ void main() {
       check(payload.size).equals(Int64(789));
       check(payload.contentType).equals('application/json');
     });
+
+    test(
+      'Returns 400 Bad Request on malformed JSON or non-Map roots',
+      () async {
+        final uri = Uri.parse('http://localhost:$port/events/uploads');
+
+        // Malformed JSON
+        final malformedRes = await http.post(
+          uri,
+          headers: {'content-type': 'application/cloudevents+json'},
+          body: '{bad json',
+        );
+        check(malformedRes.statusCode).equals(400);
+        check(malformedRes.body).contains('malformed JSON');
+
+        // JSON Array instead of JSON Object Map
+        final arrayRes = await http.post(
+          uri,
+          headers: {'content-type': 'application/cloudevents+json'},
+          body: '["not", "a", "map"]',
+        );
+        check(arrayRes.statusCode).equals(400);
+        check(arrayRes.body).contains('expected a JSON object');
+      },
+    );
   });
 }

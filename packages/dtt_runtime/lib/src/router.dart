@@ -75,7 +75,20 @@ class DttEventRouter {
     if (isPubSubBinding || isStructured) {
       final rawBytes = await collectBytes(request.read());
       final bodyStr = utf8.decode(rawBytes);
-      final envelope = jsonDecode(bodyStr) as Map<String, dynamic>;
+      final Map<String, dynamic> envelope;
+      try {
+        final decoded = jsonDecode(bodyStr);
+        if (decoded is! Map<String, dynamic>) {
+          return Response.badRequest(
+            body: 'Invalid CloudEvent envelope: expected a JSON object.',
+          );
+        }
+        envelope = decoded;
+      } on FormatException {
+        return Response.badRequest(
+          body: 'Invalid CloudEvent envelope: malformed JSON.',
+        );
+      }
 
       if (isPubSubBinding) {
         final message = envelope['message'] as Map<String, dynamic>? ?? {};
