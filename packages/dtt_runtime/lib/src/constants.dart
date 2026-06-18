@@ -16,3 +16,10 @@
 /// pre-decoded CloudEvent JSON envelope Map from the router down to
 /// the event parser, eliminating redundant double-decoding on the hot path.
 const String envelopeContextKey = 'dtt.envelope';
+
+/// Internal exception thrown when untrusted CloudEvent payloads or
+/// Protobuf JSON structures violate expected object schema contracts.
+class BadEnvelopeException implements Exception {
+  final String message;
+  const BadEnvelopeException(this.message);
+}

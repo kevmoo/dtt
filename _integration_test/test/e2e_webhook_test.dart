@@ -250,5 +250,27 @@ void main() {
         check(structRes.body).contains('missing type attribute');
       },
     );
+
+    test(
+      'Returns 400 Bad Request on malformed Protobuf JSON payloads',
+      () async {
+        final uri = Uri.parse('http://localhost:$port/events/uploads');
+
+        // Structured mode where data is an array instead of map/string
+        final badDataRes = await http.post(
+          uri,
+          headers: {'content-type': 'application/cloudevents+json'},
+          body: jsonEncode({
+            'id': 'evt_bad_data',
+            'source': '//test',
+            'specversion': '1.0',
+            'type': 'google.cloud.storage.object.v1.finalized',
+            'data': [1, 2, 3],
+          }),
+        );
+        check(badDataRes.statusCode).equals(400);
+        check(badDataRes.body).contains('Expected a JSON object');
+      },
+    );
   });
 }

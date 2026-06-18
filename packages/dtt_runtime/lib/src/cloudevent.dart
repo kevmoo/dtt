@@ -106,9 +106,12 @@ class CloudEvent<T extends GeneratedMessage> {
         final data = create();
         if (isJson) {
           final decodedMap = jsonDecode(utf8.decode(decodedBytes));
-          if (decodedMap is Map<String, dynamic>) {
-            data.mergeFromProto3Json(decodedMap);
+          if (decodedMap is! Map<String, dynamic>) {
+            throw const BadEnvelopeException(
+              'Expected a JSON object for Protobuf payload.',
+            );
           }
+          data.mergeFromProto3Json(decodedMap);
         } else {
           data.mergeFromBuffer(decodedBytes);
         }
@@ -133,6 +136,10 @@ class CloudEvent<T extends GeneratedMessage> {
             data.mergeFromJson(rawData);
           } else if (rawData is Map<String, dynamic>) {
             data.mergeFromProto3Json(rawData);
+          } else {
+            throw const BadEnvelopeException(
+              'Expected a JSON object or string for Protobuf payload.',
+            );
           }
         }
         jsonMap['data_model'] = data;
@@ -154,9 +161,12 @@ class CloudEvent<T extends GeneratedMessage> {
             dataContentType != null && dataContentType.contains('json');
         if (isJson) {
           final decodedMap = jsonDecode(utf8.decode(rawBytes));
-          if (decodedMap is Map<String, dynamic>) {
-            data.mergeFromProto3Json(decodedMap);
+          if (decodedMap is! Map<String, dynamic>) {
+            throw const BadEnvelopeException(
+              'Expected a JSON object for Protobuf payload.',
+            );
           }
+          data.mergeFromProto3Json(decodedMap);
         } else {
           data.mergeFromBuffer(rawBytes);
         }
@@ -179,12 +189,14 @@ class CloudEvent<T extends GeneratedMessage> {
         String s => s,
         _ => '',
       },
-      dataContentType: jsonMap['datacontenttype'] is String?
-          ? jsonMap['datacontenttype'] as String?
-          : null,
-      subject: jsonMap['subject'] is String?
-          ? jsonMap['subject'] as String?
-          : null,
+      dataContentType: switch (jsonMap['datacontenttype']) {
+        String s => s,
+        _ => null,
+      },
+      subject: switch (jsonMap['subject']) {
+        String s => s,
+        _ => null,
+      },
       time: switch (jsonMap['time']) {
         String s => DateTime.tryParse(s),
         _ => null,
@@ -202,6 +214,10 @@ extension on Request {
     final cached = context[envelopeContextKey];
     if (cached is Map<String, dynamic>) return cached;
     final bodyStr = await readAsString();
-    return jsonDecode(bodyStr) as Map<String, dynamic>;
+    final decoded = jsonDecode(bodyStr);
+    if (decoded is! Map<String, dynamic>) {
+      throw const BadEnvelopeException('Expected a JSON object envelope.');
+    }
+    return decoded;
   }
 }

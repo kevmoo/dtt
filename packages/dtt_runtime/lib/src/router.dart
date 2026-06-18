@@ -79,7 +79,7 @@ class DttEventRouter {
       try {
         final decoded = jsonDecode(bodyStr);
         if (decoded is! Map<String, dynamic>) {
-          throw const _BadEnvelopeException(
+          throw const BadEnvelopeException(
             'Invalid CloudEvent envelope: expected a JSON object.',
           );
         }
@@ -89,14 +89,14 @@ class DttEventRouter {
           eventType = switch (envelope) {
             {'message': {'attributes': {'ce-type': String s}}} => s,
             {'message': {'attributes': {'type': String s}}} => s,
-            _ => throw const _BadEnvelopeException(
+            _ => throw const BadEnvelopeException(
               'Invalid Pub/Sub binding: missing ce-type attribute.',
             ),
           };
         } else {
           eventType = switch (envelope) {
             {'type': String s} => s,
-            _ => throw const _BadEnvelopeException(
+            _ => throw const BadEnvelopeException(
               'Invalid Structured CloudEvent: missing type attribute.',
             ),
           };
@@ -105,7 +105,7 @@ class DttEventRouter {
         return Response.badRequest(
           body: 'Invalid CloudEvent envelope: malformed JSON.',
         );
-      } on _BadEnvelopeException catch (e) {
+      } on BadEnvelopeException catch (e) {
         return Response.badRequest(body: e.message);
       }
 
@@ -125,7 +125,19 @@ class DttEventRouter {
       );
     }
 
-    await entry.parseAndExecute(targetRequest);
+    try {
+      await entry.parseAndExecute(targetRequest);
+    } on FormatException catch (e) {
+      return Response.badRequest(
+        body: 'Invalid event payload: malformed JSON (${e.message}).',
+      );
+    } on InvalidProtocolBufferException catch (e) {
+      return Response.badRequest(
+        body: 'Invalid event payload: malformed Protobuf (${e.message}).',
+      );
+    } on BadEnvelopeException catch (e) {
+      return Response.badRequest(body: e.message);
+    }
 
     return Response.ok('Event triggering execution complete');
   }
@@ -143,9 +155,4 @@ class _RouteEntry<T extends GeneratedMessage> {
     final event = await CloudEvent.parse<T>(request, create);
     await handler(event);
   }
-}
-
-class _BadEnvelopeException implements Exception {
-  final String message;
-  const _BadEnvelopeException(this.message);
 }
