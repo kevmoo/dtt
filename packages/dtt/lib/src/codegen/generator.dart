@@ -112,7 +112,7 @@ class _DttGenerator {
       final handler = trigger.handler;
       imports.add(
         'package:$packageName/src/handlers/'
-        '${_camelToSnake(handler)}.dart',
+        '${_toSnakeCase(handler)}.dart',
       );
     }
 
@@ -304,7 +304,6 @@ Future<void> main(List<String> args) async {
       await tfDir.create(recursive: true);
     }
 
-    final gcloudPath = _resolveGcloudPath();
     final packageRelPath = p.relative(packageDir, from: workspaceRoot);
 
     final saSuffix = serviceName.length > 15
@@ -317,7 +316,6 @@ Future<void> main(List<String> args) async {
       serviceName: serviceName,
       saAccountId: saAccountId,
       packageRelPath: packageRelPath,
-      gcloudPath: gcloudPath,
       triggers: triggers,
     );
     final mainTf = File(p.join(tfDir.path, 'main.tf'));
@@ -333,24 +331,6 @@ Future<void> main(List<String> args) async {
     final outputsTf = File(p.join(tfDir.path, 'outputs.tf'));
     await outputsTf.writeAsString(outputsFile.toString());
   }
-}
-
-String _resolveGcloudPath() {
-  var gcloudPath = 'gcloud';
-  try {
-    final whichResult = Process.runSync('which', ['gcloud']);
-    if (whichResult.exitCode == 0) {
-      gcloudPath = whichResult.stdout.toString().trim();
-    } else {
-      final fallback = File(
-        '/Users/kevmoo/.local/share/mise/installs/gcloud/569.0.0/bin/gcloud',
-      );
-      if (fallback.existsSync()) {
-        gcloudPath = fallback.path;
-      }
-    }
-  } catch (_) {}
-  return gcloudPath;
 }
 
 HclFile _buildVariablesTf(String projectId, String region) {
@@ -375,6 +355,18 @@ HclFile _buildVariablesTf(String projectId, String region) {
     ..attribute('default', HclValue.string(region));
   variablesFile.addBlock(varRegion);
 
+  final varGcloud =
+      HclBlock(type: 'variable', labels: const <String>['gcloud_path'])
+        ..attribute('type', const HclValue.raw('string'))
+        ..attribute(
+          'description',
+          const HclValue.string(
+            'Executable path or command name for the Google Cloud SDK CLI.',
+          ),
+        )
+        ..attribute('default', const HclValue.string('gcloud'));
+  variablesFile.addBlock(varGcloud);
+
   return variablesFile;
 }
 
@@ -398,7 +390,7 @@ HclFile _buildOutputsTf(List<TriggerConfig> triggers) {
 
   final triggerRefs = <HclValue>[];
   for (final trigger in triggers) {
-    final name = trigger.name;
+    final name = _toSnakeCase(trigger.name);
     triggerRefs.add(HclValue.raw('google_eventarc_trigger.trigger_$name.id'));
   }
 
@@ -420,19 +412,21 @@ HclFile _buildMainTf({
   required String serviceName,
   required String saAccountId,
   required String packageRelPath,
-  required String gcloudPath,
   required List<TriggerConfig> triggers,
 }) {
   final mainFile = HclFile();
+  final hasGlobal = triggers.any((t) => t.meta.isGlobal);
 
-  for (final block in _buildCoreProvidersAndDataSources(serviceName)) {
+  for (final block in _buildCoreProvidersAndDataSources(
+    serviceName,
+    hasGlobal,
+  )) {
     mainFile.addBlock(block);
   }
 
   mainFile.addBlock(
     _buildDeployResource(
       packageRelPath: packageRelPath,
-      gcloudPath: gcloudPath,
       serviceName: serviceName,
     ),
   );
@@ -455,35 +449,53 @@ HclFile _buildMainTf({
   return mainFile;
 }
 
-List<HclBlock> _buildCoreProvidersAndDataSources(String serviceName) {
+List<HclBlock> _buildCoreProvidersAndDataSources(
+  String serviceName,
+  bool hasGlobal,
+) {
+  final reqProvidersBlock = HclBlock(type: 'required_providers')
+    ..attribute(
+      'google',
+      const HclValue.map(<String, HclValue>{
+        'source': HclValue.string('hashicorp/google'),
+        'version': HclValue.string('>= 5.0.0'),
+      }),
+    )
+    ..attribute(
+      'null',
+      const HclValue.map(<String, HclValue>{
+        'source': HclValue.string('hashicorp/null'),
+        'version': HclValue.string('>= 3.0.0'),
+      }),
+    );
+
+  if (hasGlobal) {
+    reqProvidersBlock.attribute(
+      'google-beta',
+      const HclValue.map(<String, HclValue>{
+        'source': HclValue.string('hashicorp/google-beta'),
+        'version': HclValue.string('>= 5.0.0'),
+      }),
+    );
+  }
+
   final tfConfig = HclBlock(type: 'terraform')
     ..attribute('required_version', const HclValue.string('>= 1.3.0'))
-    ..addBlock(
-      HclBlock(type: 'required_providers')
-        ..attribute(
-          'google',
-          const HclValue.map(<String, HclValue>{
-            'source': HclValue.string('hashicorp/google'),
-            'version': HclValue.string('>= 5.0.0'),
-          }),
-        )
-        ..attribute(
-          'google-beta',
-          const HclValue.map(<String, HclValue>{
-            'source': HclValue.string('hashicorp/google-beta'),
-            'version': HclValue.string('>= 5.0.0'),
-          }),
-        ),
-    );
+    ..addBlock(reqProvidersBlock);
 
   final provider = HclBlock(type: 'provider', labels: const <String>['google'])
     ..attribute('project', const HclValue.raw('var.project_id'))
     ..attribute('region', const HclValue.raw('var.region'));
 
-  final providerBeta =
-      HclBlock(type: 'provider', labels: const <String>['google-beta'])
-        ..attribute('project', const HclValue.raw('var.project_id'))
-        ..attribute('region', const HclValue.raw('var.region'));
+  final blocks = <HclBlock>[tfConfig, provider];
+
+  if (hasGlobal) {
+    final providerBeta =
+        HclBlock(type: 'provider', labels: const <String>['google-beta'])
+          ..attribute('project', const HclValue.raw('var.project_id'))
+          ..attribute('region', const HclValue.raw('var.region'));
+    blocks.add(providerBeta);
+  }
 
   final serviceData =
       HclBlock(
@@ -505,52 +517,54 @@ List<HclBlock> _buildCoreProvidersAndDataSources(String serviceName) {
     labels: const <String>['google_project', 'project'],
   )..comment('Retrieve live project metadata for Service Agent referencing');
 
-  return [tfConfig, provider, providerBeta, serviceData, projectData];
+  blocks.addAll([serviceData, projectData]);
+  return blocks;
 }
 
 HclBlock _buildDeployResource({
   required String packageRelPath,
-  required String gcloudPath,
   required String serviceName,
-}) =>
-    HclBlock(
-        type: 'resource',
-        labels: const <String>['null_resource', 'cloud_run_deploy'],
-      )
-      ..comment(
-        'E2E Source-Based deployment compiler utilizing Dart helper script '
-        'preventing local codebase pollution and ensuring Windows/POSIX support',
-      )
-      ..attribute(
-        'triggers',
-        const HclValue.map(<String, HclValue>{
-          'config_hash': HclValue.raw(
-            r'fileexists("${path.module}/../dtt.yaml") ? '
-            r'filesha256("${path.module}/../dtt.yaml") : "default"',
+}) {
+  final targetDir = packageRelPath == '.'
+      ? '\${path.module}/..'
+      : '\${path.module}/../$packageRelPath';
+
+  return HclBlock(
+      type: 'resource',
+      labels: const <String>['null_resource', 'cloud_run_deploy'],
+    )
+    ..comment(
+      'E2E Source-Based deployment compiler utilizing Dart helper script '
+      'preventing local codebase pollution and ensuring Windows/POSIX support',
+    )
+    ..attribute(
+      'triggers',
+      HclValue.map(<String, HclValue>{
+        'config_hash': HclValue.raw(
+          'fileexists("$targetDir/dtt.yaml") ? '
+          'filesha256("$targetDir/dtt.yaml") : "default"',
+        ),
+        'server_hash': HclValue.raw(
+          'fileexists("$targetDir/bin/server.dart") ? '
+          'filesha256("$targetDir/bin/server.dart") : "default"',
+        ),
+        'deploy_hash': HclValue.raw(
+          'fileexists("$targetDir/bin/deploy.dart") ? '
+          'filesha256("$targetDir/bin/deploy.dart") : "default"',
+        ),
+      }),
+    )
+    ..addBlock(
+      HclBlock(type: 'provisioner', labels: const <String>['local-exec'])
+        ..attribute('working_dir', HclValue.raw('"$targetDir"'))
+        ..attribute(
+          'command',
+          HclValue.raw(
+            '"dart run bin/deploy.dart \${var.gcloud_path} $serviceName \${var.project_id} \${var.region}"',
           ),
-          'server_hash': HclValue.raw(
-            r'fileexists("${path.module}/../bin/server.dart") ? '
-            r'filesha256("${path.module}/../bin/server.dart") : "default"',
-          ),
-          'deploy_hash': HclValue.raw(
-            r'fileexists("${path.module}/../bin/deploy.dart") ? '
-            r'filesha256("${path.module}/../bin/deploy.dart") : "default"',
-          ),
-        }),
-      )
-      ..addBlock(
-        HclBlock(type: 'provisioner', labels: const <String>['local-exec'])
-          ..attribute(
-            'working_dir',
-            HclValue.raw('"\${path.module}/../$packageRelPath"'),
-          )
-          ..attribute(
-            'command',
-            HclValue.raw(
-              '"dart run bin/deploy.dart $gcloudPath $serviceName \${var.project_id} \${var.region}"',
-            ),
-          ),
-      );
+        ),
+    );
+}
 
 List<HclBlock> _buildServiceAccountAndInvoker(
   String saAccountId,
@@ -778,7 +792,8 @@ List<HclBlock> _buildServiceAgentIamBlocks(List<TriggerConfig> triggers) {
 }
 
 HclBlock _buildEventarcTriggerBlock(TriggerConfig trigger, String serviceName) {
-  final name = trigger.name;
+  final rawName = trigger.name;
+  final hclName = _toSnakeCase(rawName);
   final type = trigger.type.identifier;
   final path = trigger.path;
 
@@ -795,10 +810,10 @@ HclBlock _buildEventarcTriggerBlock(TriggerConfig trigger, String serviceName) {
   final triggerBlock =
       HclBlock(
           type: 'resource',
-          labels: <String>['google_eventarc_trigger', 'trigger_$name'],
+          labels: <String>['google_eventarc_trigger', 'trigger_$hclName'],
         )
-        ..comment('GCP Eventarc Trigger Mapping signals: $name')
-        ..attribute('name', HclValue.string('$serviceName-$name-trigger'))
+        ..comment('GCP Eventarc Trigger Mapping signals: $rawName')
+        ..attribute('name', HclValue.string('$serviceName-$rawName-trigger'))
         ..attribute('location', triggerLocationVal);
 
   if (isGlobal) {
@@ -862,9 +877,10 @@ HclBlock _buildEventarcTriggerBlock(TriggerConfig trigger, String serviceName) {
   return triggerBlock;
 }
 
-String _camelToSnake(String input) => input
+String _toSnakeCase(String input) => input
     .replaceAllMapped(
       RegExp(r'(.)([A-Z])'),
       (Match match) => '${match.group(1)}_${match.group(2)}',
     )
+    .replaceAll('-', '_')
     .toLowerCase();

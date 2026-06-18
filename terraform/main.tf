@@ -2,13 +2,13 @@ terraform {
   required_version = ">= 1.3.0"
 
   required_providers {
-    google      = {
+    google = {
     source = "hashicorp/google"
     version = ">= 5.0.0"
   }
-    google-beta = {
-    source = "hashicorp/google-beta"
-    version = ">= 5.0.0"
+    null   = {
+    source = "hashicorp/null"
+    version = ">= 3.0.0"
   }
   }
 }
@@ -18,16 +18,11 @@ provider "google" {
   region  = var.region
 }
 
-provider "google-beta" {
-  project = var.project_id
-  region  = var.region
-}
-
 # Retrieve live metadata of our pre-deployed OS-only service
 data "google_cloud_run_v2_service" "service" {
   name       = "gcs-triggers"
   location   = var.region
-  depends_on = [ null_resource.cloud_run_deploy ]
+  depends_on = [null_resource.cloud_run_deploy]
 }
 
 # Retrieve live project metadata for Service Agent referencing
@@ -37,14 +32,14 @@ data "google_project" "project" {
 # E2E Source-Based deployment compiler utilizing Dart helper script preventing local codebase pollution and ensuring Windows/POSIX support
 resource "null_resource" "cloud_run_deploy" {
   triggers = {
-    config_hash = fileexists("${path.module}/../dtt.yaml") ? filesha256("${path.module}/../dtt.yaml") : "default"
-    server_hash = fileexists("${path.module}/../bin/server.dart") ? filesha256("${path.module}/../bin/server.dart") : "default"
-    deploy_hash = fileexists("${path.module}/../bin/deploy.dart") ? filesha256("${path.module}/../bin/deploy.dart") : "default"
+    config_hash = fileexists("${path.module}/../examples/firebase_auth_example/dtt.yaml") ? filesha256("${path.module}/../examples/firebase_auth_example/dtt.yaml") : "default"
+    server_hash = fileexists("${path.module}/../examples/firebase_auth_example/bin/server.dart") ? filesha256("${path.module}/../examples/firebase_auth_example/bin/server.dart") : "default"
+    deploy_hash = fileexists("${path.module}/../examples/firebase_auth_example/bin/deploy.dart") ? filesha256("${path.module}/../examples/firebase_auth_example/bin/deploy.dart") : "default"
   }
 
   provisioner "local-exec" {
     working_dir = "${path.module}/../examples/firebase_auth_example"
-    command     = "dart run bin/deploy.dart /Users/kevmoo/.local/share/google-cloud-sdk/bin/gcloud gcs-triggers ${var.project_id} ${var.region}"
+    command     = "dart run bin/deploy.dart ${var.gcloud_path} gcs-triggers ${var.project_id} ${var.region}"
   }
 }
 
@@ -94,7 +89,7 @@ resource "google_service_account_iam_member" "eventarc_sa_user" {
 }
 
 # GCP Eventarc Trigger Mapping signals: on-upload
-resource "google_eventarc_trigger" "trigger_on-upload" {
+resource "google_eventarc_trigger" "trigger_on_upload" {
   name            = "gcs-triggers-on-upload-trigger"
   location        = var.region
   service_account = google_service_account.eventarc_invoker.email

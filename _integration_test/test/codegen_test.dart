@@ -88,7 +88,7 @@ triggers:
           mainTfContent,
         ).contains('name     = data.google_cloud_run_v2_service.service.name');
         check(mainTfContent).contains(
-          'resource "google_eventarc_trigger" "trigger_auth-user-created"',
+          'resource "google_eventarc_trigger" "trigger_auth_user_created"',
         );
         check(mainTfContent).contains('provider        = google-beta');
         check(
@@ -210,7 +210,7 @@ triggers:
         check(mainTfContent).contains('data "google_project" "project" {');
         check(
           mainTfContent,
-        ).contains('resource "google_eventarc_trigger" "trigger_user-written"');
+        ).contains('resource "google_eventarc_trigger" "trigger_user_written"');
         check(
           mainTfContent,
         ).contains('value     = "google.cloud.firestore.document.v1.written"');

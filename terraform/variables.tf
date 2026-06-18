@@ -9,3 +9,9 @@ variable "region" {
   description = "Target GCP region for resources deployment."
   default     = "us-central1"
 }
+
+variable "gcloud_path" {
+  type        = string
+  description = "Executable path or command name for the Google Cloud SDK CLI."
+  default     = "gcloud"
+}

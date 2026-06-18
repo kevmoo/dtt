@@ -86,7 +86,7 @@ final class _HclList extends HclValue {
   String render() {
     if (values.isEmpty) return '[]';
     final renderedItems = values.map((v) => v.render()).join(', ');
-    return '[ $renderedItems ]';
+    return '[$renderedItems]';
   }
 }
 
