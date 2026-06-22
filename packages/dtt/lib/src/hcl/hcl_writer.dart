@@ -132,6 +132,47 @@ final class HclBlock {
     _nestedBlocks.add(block);
   }
 
+  /// Resolves the Terraform HCL expression address prefix for this block
+  /// (e.g. `google_service_account.eventarc_invoker` or `var.project_id`).
+  String get address {
+    switch (type) {
+      case 'resource':
+        if (labels.length < 2) {
+          throw StateError(
+            'Resource block missing type and name labels: $labels',
+          );
+        }
+        return '${labels[0]}.${labels[1]}';
+      case 'data':
+        if (labels.length < 2) {
+          throw StateError(
+            'Data source block missing type and name labels: $labels',
+          );
+        }
+        return 'data.${labels[0]}.${labels[1]}';
+      case 'variable':
+        if (labels.isEmpty) {
+          throw StateError('Variable block missing name label');
+        }
+        return 'var.${labels[0]}';
+      default:
+        throw UnsupportedError(
+          'Cannot create reference address for block type: $type',
+        );
+    }
+  }
+
+  /// Creates a raw unquoted reference expression value pointing to this block
+  /// (e.g. `google_service_account.eventarc_invoker.email`).
+  HclValue ref([String? attribute]) {
+    final suffix = attribute != null ? '.$attribute' : '';
+    return HclValue.raw('$address$suffix');
+  }
+
+  /// Creates an HCL string interpolation expression substring pointing to this
+  /// block (e.g. `${google_service_account.eventarc_invoker.email}`).
+  String interp(String attribute) => '\${$address.$attribute}';
+
   /// Compiles this block recursively, applying proper indentation indents.
   /// Automatically aligns all `=` operators column-wise on the block
   /// attributes!
