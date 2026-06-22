@@ -388,13 +388,14 @@ HclFile _buildVariablesTf(String projectId, String region) {
 
 HclFile _buildOutputsTf(List<TriggerConfig> triggers) {
   final outputsFile = HclFile();
+  final serviceData = HclBlock(
+    type: 'data',
+    labels: const <String>['google_cloud_run_v2_service', 'service'],
+  );
 
   final outputUrl =
       HclBlock(type: 'output', labels: const <String>['service_url'])
-        ..attribute(
-          'value',
-          const HclValue.raw('data.google_cloud_run_v2_service.service.uri'),
-        )
+        ..attribute('value', serviceData.ref('uri'))
         ..attribute(
           'description',
           const HclValue.string(
@@ -407,7 +408,11 @@ HclFile _buildOutputsTf(List<TriggerConfig> triggers) {
   final triggerRefs = <HclValue>[];
   for (final trigger in triggers) {
     final name = _toSnakeCase(trigger.name);
-    triggerRefs.add(HclValue.raw('google_eventarc_trigger.trigger_$name.id'));
+    final triggerBlock = HclBlock(
+      type: 'resource',
+      labels: ['google_eventarc_trigger', 'trigger_$name'],
+    );
+    triggerRefs.add(triggerBlock.ref('id'));
   }
 
   final outputTriggers =
@@ -434,34 +439,62 @@ HclFile _buildMainTf({
   final mainFile = HclFile();
   final hasGlobal = triggers.any((t) => t.meta.isGlobal);
 
+  final deployResource = _buildDeployResource(
+    packageRelPath: packageRelPath,
+    serviceName: serviceName,
+  );
+  final serviceData = HclBlock(
+    type: 'data',
+    labels: const <String>['google_cloud_run_v2_service', 'service'],
+  );
+  final projectData = HclBlock(
+    type: 'data',
+    labels: const <String>['google_project', 'project'],
+  );
+  final serviceAccount = HclBlock(
+    type: 'resource',
+    labels: const <String>['google_service_account', 'eventarc_invoker'],
+  );
+
   for (final block in _buildCoreProvidersAndDataSources(
     serviceName,
     hasGlobal,
     labels,
+    deployResource,
+    serviceData,
+    projectData,
   )) {
     mainFile.addBlock(block);
   }
 
-  mainFile.addBlock(
-    _buildDeployResource(
-      packageRelPath: packageRelPath,
-      serviceName: serviceName,
-    ),
-  );
+  mainFile.addBlock(deployResource);
 
   for (final block in _buildServiceAccountAndInvoker(
     saAccountId,
     serviceName,
+    serviceAccount,
+    serviceData,
   )) {
     mainFile.addBlock(block);
   }
 
-  for (final block in _buildServiceAgentIamBlocks(triggers)) {
+  for (final block in _buildServiceAgentIamBlocks(
+    triggers,
+    projectData,
+    serviceAccount,
+  )) {
     mainFile.addBlock(block);
   }
 
   for (final trigger in triggers) {
-    mainFile.addBlock(_buildEventarcTriggerBlock(trigger, serviceName));
+    mainFile.addBlock(
+      _buildEventarcTriggerBlock(
+        trigger,
+        serviceName,
+        serviceAccount,
+        serviceData,
+      ),
+    );
   }
 
   return mainFile;
@@ -471,6 +504,9 @@ List<HclBlock> _buildCoreProvidersAndDataSources(
   String serviceName,
   bool hasGlobal,
   Map<String, String> labels,
+  HclBlock deployResource,
+  HclBlock serviceData,
+  HclBlock projectData,
 ) {
   final reqProvidersBlock = HclBlock(type: 'required_providers')
     ..attribute(
@@ -523,25 +559,15 @@ List<HclBlock> _buildCoreProvidersAndDataSources(
     blocks.add(providerBeta);
   }
 
-  final serviceData =
-      HclBlock(
-          type: 'data',
-          labels: const <String>['google_cloud_run_v2_service', 'service'],
-        )
-        ..comment('Retrieve live metadata of our pre-deployed OS-only service')
-        ..attribute('name', HclValue.string(serviceName))
-        ..attribute('location', const HclValue.raw('var.region'))
-        ..attribute(
-          'depends_on',
-          const HclValue.list(<HclValue>[
-            HclValue.raw('null_resource.cloud_run_deploy'),
-          ]),
-        );
+  serviceData
+    ..comment('Retrieve live metadata of our pre-deployed OS-only service')
+    ..attribute('name', HclValue.string(serviceName))
+    ..attribute('location', const HclValue.raw('var.region'))
+    ..attribute('depends_on', HclValue.list(<HclValue>[deployResource.ref()]));
 
-  final projectData = HclBlock(
-    type: 'data',
-    labels: const <String>['google_project', 'project'],
-  )..comment('Retrieve live project metadata for Service Agent referencing');
+  projectData.comment(
+    'Retrieve live project metadata for Service Agent referencing',
+  );
 
   blocks.addAll([serviceData, projectData]);
   return blocks;
@@ -595,18 +621,16 @@ HclBlock _buildDeployResource({
 List<HclBlock> _buildServiceAccountAndInvoker(
   String saAccountId,
   String serviceName,
+  HclBlock serviceAccount,
+  HclBlock serviceData,
 ) {
-  final serviceAccount =
-      HclBlock(
-          type: 'resource',
-          labels: const <String>['google_service_account', 'eventarc_invoker'],
-        )
-        ..comment('Zero-Trust minimum privilege service account mapping')
-        ..attribute('account_id', HclValue.string(saAccountId))
-        ..attribute(
-          'display_name',
-          HclValue.string('Eventarc $serviceName Invoker Service Account'),
-        );
+  serviceAccount
+    ..comment('Zero-Trust minimum privilege service account mapping')
+    ..attribute('account_id', HclValue.string(saAccountId))
+    ..attribute(
+      'display_name',
+      HclValue.string('Eventarc $serviceName Invoker Service Account'),
+    );
 
   final iamMember =
       HclBlock(
@@ -620,23 +644,12 @@ List<HclBlock> _buildServiceAccountAndInvoker(
           'Grant Invoker Service Account authorization to call our '
           'Cloud Run container',
         )
-        ..attribute(
-          'name',
-          const HclValue.raw('data.google_cloud_run_v2_service.service.name'),
-        )
-        ..attribute(
-          'location',
-          const HclValue.raw(
-            'data.google_cloud_run_v2_service.service.location',
-          ),
-        )
+        ..attribute('name', serviceData.ref('name'))
+        ..attribute('location', serviceData.ref('location'))
         ..attribute('role', const HclValue.string('roles/run.invoker'))
         ..attribute(
           'member',
-          const HclValue.string(
-            'serviceAccount:'
-            r'${google_service_account.eventarc_invoker.email}',
-          ),
+          HclValue.string('serviceAccount:${serviceAccount.interp("email")}'),
         );
 
   final iamReceiver =
@@ -658,16 +671,17 @@ List<HclBlock> _buildServiceAccountAndInvoker(
         )
         ..attribute(
           'member',
-          const HclValue.string(
-            'serviceAccount:'
-            r'${google_service_account.eventarc_invoker.email}',
-          ),
+          HclValue.string('serviceAccount:${serviceAccount.interp("email")}'),
         );
 
   return [serviceAccount, iamMember, iamReceiver];
 }
 
-List<HclBlock> _buildServiceAgentIamBlocks(List<TriggerConfig> triggers) {
+List<HclBlock> _buildServiceAgentIamBlocks(
+  List<TriggerConfig> triggers,
+  HclBlock projectData,
+  HclBlock serviceAccount,
+) {
   final blocks = <HclBlock>[];
   final hasFirestore = triggers.any((t) => t is FirestoreTriggerConfig);
   final hasStorage = triggers.any((t) => t is StorageTriggerConfig);
@@ -689,9 +703,8 @@ List<HclBlock> _buildServiceAgentIamBlocks(List<TriggerConfig> triggers) {
         ..attribute('role', const HclValue.string('roles/pubsub.publisher'))
         ..attribute(
           'member',
-          const HclValue.string(
-            'serviceAccount:service-'
-            r'${data.google_project.project.number}'
+          HclValue.string(
+            'serviceAccount:service-${projectData.interp("number")}'
             '@gcp-sa-firestore.iam.gserviceaccount.com',
           ),
         ),
@@ -723,15 +736,14 @@ List<HclBlock> _buildServiceAgentIamBlocks(List<TriggerConfig> triggers) {
   }
 
   if (hasStorage) {
-    blocks.add(
-      HclBlock(
-        type: 'data',
-        labels: const <String>[
-          'google_storage_project_service_account',
-          'gcs_account',
-        ],
-      ),
+    final gcsAccountData = HclBlock(
+      type: 'data',
+      labels: const <String>[
+        'google_storage_project_service_account',
+        'gcs_account',
+      ],
     );
+    blocks.add(gcsAccountData);
 
     blocks.add(
       HclBlock(
@@ -749,10 +761,8 @@ List<HclBlock> _buildServiceAgentIamBlocks(List<TriggerConfig> triggers) {
         ..attribute('role', const HclValue.string('roles/pubsub.publisher'))
         ..attribute(
           'member',
-          const HclValue.string(
-            'serviceAccount:'
-            r'${data.google_storage_project_service_account.'
-            r'gcs_account.email_address}',
+          HclValue.string(
+            'serviceAccount:${gcsAccountData.interp("email_address")}',
           ),
         ),
     );
@@ -770,19 +780,15 @@ List<HclBlock> _buildServiceAgentIamBlocks(List<TriggerConfig> triggers) {
         'Grant Pub/Sub Service Agent permissions to generate OIDC tokens '
         'under our Custom SA',
       )
-      ..attribute(
-        'service_account_id',
-        const HclValue.raw('google_service_account.eventarc_invoker.name'),
-      )
+      ..attribute('service_account_id', serviceAccount.ref('name'))
       ..attribute(
         'role',
         const HclValue.string('roles/iam.serviceAccountTokenCreator'),
       )
       ..attribute(
         'member',
-        const HclValue.string(
-          'serviceAccount:service-'
-          r'${data.google_project.project.number}'
+        HclValue.string(
+          'serviceAccount:service-${projectData.interp("number")}'
           '@gcp-sa-pubsub.iam.gserviceaccount.com',
         ),
       ),
@@ -799,16 +805,12 @@ List<HclBlock> _buildServiceAgentIamBlocks(List<TriggerConfig> triggers) {
       ..comment(
         'Grant Eventarc Service Agent permissions to act as our Custom SA',
       )
-      ..attribute(
-        'service_account_id',
-        const HclValue.raw('google_service_account.eventarc_invoker.name'),
-      )
+      ..attribute('service_account_id', serviceAccount.ref('name'))
       ..attribute('role', const HclValue.string('roles/iam.serviceAccountUser'))
       ..attribute(
         'member',
-        const HclValue.string(
-          'serviceAccount:service-'
-          r'${data.google_project.project.number}'
+        HclValue.string(
+          'serviceAccount:service-${projectData.interp("number")}'
           '@gcp-sa-eventarc.iam.gserviceaccount.com',
         ),
       ),
@@ -817,7 +819,12 @@ List<HclBlock> _buildServiceAgentIamBlocks(List<TriggerConfig> triggers) {
   return blocks;
 }
 
-HclBlock _buildEventarcTriggerBlock(TriggerConfig trigger, String serviceName) {
+HclBlock _buildEventarcTriggerBlock(
+  TriggerConfig trigger,
+  String serviceName,
+  HclBlock serviceAccount,
+  HclBlock serviceData,
+) {
   final rawName = trigger.name;
   final hclName = _toSnakeCase(rawName);
   final type = trigger.type.identifier;
@@ -853,16 +860,10 @@ HclBlock _buildEventarcTriggerBlock(TriggerConfig trigger, String serviceName) {
     );
   }
 
-  triggerBlock.attribute(
-    'service_account',
-    const HclValue.raw('google_service_account.eventarc_invoker.email'),
-  );
+  triggerBlock.attribute('service_account', serviceAccount.ref('email'));
 
   final cloudRunService = HclBlock(type: 'cloud_run_service')
-    ..attribute(
-      'service',
-      const HclValue.raw('data.google_cloud_run_v2_service.service.name'),
-    )
+    ..attribute('service', serviceData.ref('name'))
     ..attribute('region', const HclValue.raw('var.region'))
     ..attribute('path', HclValue.string(path));
 
