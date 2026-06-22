@@ -132,6 +132,50 @@ final class HclBlock {
     _nestedBlocks.add(block);
   }
 
+  /// Resolves the Terraform HCL expression address prefix for this block
+  /// (e.g. `google_service_account.eventarc_invoker` or `var.project_id`).
+  String get address => switch (type) {
+    'resource' =>
+      labels.length >= 2
+          ? '${labels[0]}.${labels[1]}'
+          : throw StateError(
+              'Resource block missing type and name labels: $labels',
+            ),
+    'data' =>
+      labels.length >= 2
+          ? 'data.${labels[0]}.${labels[1]}'
+          : throw StateError(
+              'Data source block missing type and name labels: $labels',
+            ),
+    'variable' =>
+      labels.isNotEmpty
+          ? 'var.${labels[0]}'
+          : throw StateError('Variable block missing name label'),
+    _ => throw UnsupportedError(
+      'Cannot create reference address for block type: $type',
+    ),
+  };
+
+  /// Creates a raw unquoted reference expression value pointing to this block
+  /// (e.g. `google_service_account.eventarc_invoker.email`).
+  HclValue ref([String? attribute]) {
+    if (attribute != null && attribute.isEmpty) {
+      throw ArgumentError('Attribute cannot be empty');
+    }
+    final suffix = attribute != null ? '.$attribute' : '';
+    return HclValue.raw('$address$suffix');
+  }
+
+  /// Creates an HCL string interpolation expression substring pointing to this
+  /// block (e.g. `${google_service_account.eventarc_invoker.email}`).
+  String interp([String? attribute]) {
+    if (attribute != null && attribute.isEmpty) {
+      throw ArgumentError('Attribute cannot be empty');
+    }
+    final suffix = attribute != null ? '.$attribute' : '';
+    return '\${$address$suffix}';
+  }
+
   /// Compiles this block recursively, applying proper indentation indents.
   /// Automatically aligns all `=` operators column-wise on the block
   /// attributes!
