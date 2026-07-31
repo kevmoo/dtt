@@ -6,10 +6,6 @@ terraform {
     source = "hashicorp/google"
     version = ">= 5.0.0"
   }
-    null   = {
-    source = "hashicorp/null"
-    version = ">= 3.0.0"
-  }
   }
 }
 
@@ -21,28 +17,25 @@ provider "google" {
   }
 }
 
-# Retrieve live metadata of our pre-deployed OS-only service
-data "google_cloud_run_v2_service" "service" {
-  name       = "gcs-triggers"
-  location   = var.region
-  depends_on = [null_resource.cloud_run_deploy]
-}
-
 # Retrieve live project metadata for Service Agent referencing
 data "google_project" "project" {
 }
 
-# E2E Source-Based deployment compiler utilizing Dart helper script preventing local codebase pollution and ensuring Windows/POSIX support
-resource "null_resource" "cloud_run_deploy" {
-  triggers = {
-    config_hash = fileexists("${path.module}/../examples/firebase_auth_example/dtt.yaml") ? filesha256("${path.module}/../examples/firebase_auth_example/dtt.yaml") : "default"
-    server_hash = fileexists("${path.module}/../examples/firebase_auth_example/bin/server.dart") ? filesha256("${path.module}/../examples/firebase_auth_example/bin/server.dart") : "default"
-    deploy_hash = fileexists("${path.module}/../examples/firebase_auth_example/bin/deploy.dart") ? filesha256("${path.module}/../examples/firebase_auth_example/bin/deploy.dart") : "default"
-  }
+# Declarative Cloud Run v2 Service Specification
+resource "google_cloud_run_v2_service" "service" {
+  name                = "gcs-triggers"
+  location            = var.region
+  ingress             = "INGRESS_TRAFFIC_INTERNAL_ONLY"
+  deletion_protection = false
 
-  provisioner "local-exec" {
-    working_dir = "${path.module}/../examples/firebase_auth_example"
-    command     = "dart run bin/deploy.dart ${var.gcloud_path} gcs-triggers ${var.project_id} ${var.region}"
+  template {
+    containers {
+      image = var.container_image
+
+      ports {
+        container_port = 8080
+      }
+    }
   }
 }
 
@@ -54,8 +47,8 @@ resource "google_service_account" "eventarc_invoker" {
 
 # Grant Invoker Service Account authorization to call our Cloud Run container
 resource "google_cloud_run_v2_service_iam_member" "invoker_role" {
-  name     = data.google_cloud_run_v2_service.service.name
-  location = data.google_cloud_run_v2_service.service.location
+  name     = google_cloud_run_v2_service.service.name
+  location = google_cloud_run_v2_service.service.location
   role     = "roles/run.invoker"
   member   = "serviceAccount:${google_service_account.eventarc_invoker.email}"
 }
@@ -99,7 +92,7 @@ resource "google_eventarc_trigger" "trigger_on_upload" {
 
   destination {
     cloud_run_service {
-      service = data.google_cloud_run_v2_service.service.name
+      service = google_cloud_run_v2_service.service.name
       region  = var.region
       path    = "/events/uploads"
     }
@@ -112,6 +105,6 @@ resource "google_eventarc_trigger" "trigger_on_upload" {
 
   matching_criteria {
     attribute = "bucket"
-    value     = "dart-sdk-bazel-sandbox-dtt-upload"
+    value     = "dtt-pkg-test-upload"
   }
 }

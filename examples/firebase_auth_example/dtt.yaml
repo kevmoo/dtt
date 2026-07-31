@@ -15,7 +15,7 @@
 # Declarative microservice infrastructure configuration
 service:
   name: gcs-triggers
-  project_id: dart-sdk-bazel-sandbox-265004
+  project_id: dtt-pkg-test
   region: us-central1
 
 # Infrastructure trigger bindings mapped natively to GCP Eventarc rules
@@ -24,4 +24,4 @@ triggers:
     type: google.cloud.storage.object.v1.finalized
     path: /events/uploads
     handler: onUpload
-    bucket: dart-sdk-bazel-sandbox-dtt-upload
+    bucket: dtt-pkg-test-upload

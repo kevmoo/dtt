@@ -1,5 +1,5 @@
 output "service_url" {
-  value       = data.google_cloud_run_v2_service.service.uri
+  value       = google_cloud_run_v2_service.service.uri
   description = "URL of our deployed serverless Dart Cloud Run service container."
 }
 

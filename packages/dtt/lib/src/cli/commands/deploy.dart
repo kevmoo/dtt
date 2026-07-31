@@ -12,7 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:args/command_runner.dart';
+import 'package:path/path.dart' as p;
+import 'package:yaml/yaml.dart';
+
+import 'build.dart';
 
 class DeployCommand extends Command<void> {
   @override
@@ -20,30 +27,174 @@ class DeployCommand extends Command<void> {
 
   @override
   final String description =
-      'Orchestrate Dart release container builds, push container '
-      'images, and execute Terraform GCP resource provisioning.';
+      'Provision declarative GCP infrastructure with Terraform for the serverless Cloud Run service.';
 
   DeployCommand() {
     argParser
       ..addOption(
+        'package-dir',
+        abbr: 'p',
+        defaultsTo: '.',
+        help: 'Path to target package directory containing dtt.yaml.',
+      )
+      ..addOption(
         'image',
         abbr: 'i',
         help:
-            'Target repository path tag reference for the Docker container '
-            'image. Auto-derived if omitted.',
+            'Target container image digest/URL. Auto-derived from build state if omitted.',
       )
       ..addFlag(
         'build',
         abbr: 'b',
         defaultsTo: true,
         help:
-            'Triggers Docker image release compilation and registry upload '
-            'prior to deployment.',
+            'Triggers container build (dtt build) prior to deployment if image is omitted.',
       );
   }
 
   @override
-  void run() {
-    print('Command deploy initiated. Args parsed: ${argResults?.options}');
+  Future<void> run() async {
+    final packageDirParam = argResults?['package-dir'] as String? ?? '.';
+    final packageDir = p.canonicalize(packageDirParam);
+
+    final configFile = File(p.join(packageDir, 'dtt.yaml'));
+    if (!await configFile.exists()) {
+      throw FileSystemException(
+        'Declarative config dtt.yaml not found inside package folder.',
+        configFile.path,
+      );
+    }
+
+    final content = await configFile.readAsString();
+    final doc = loadYaml(content) as YamlMap;
+    final serviceNode = doc['service'] as YamlMap?;
+    if (serviceNode == null) {
+      throw const FormatException(
+        'Config dtt.yaml missing mandatory [service] mapping block.',
+      );
+    }
+
+    final projectId = serviceNode['project_id'] as String? ?? 'gcp-project-id';
+    final region = serviceNode['region'] as String? ?? 'us-central1';
+
+    String? containerImage = argResults?['image'] as String?;
+
+    final stateFile = File(p.join(packageDir, '.dtt', 'build_state.json'));
+
+    if (containerImage == null || containerImage.isEmpty) {
+      final shouldBuild = argResults?['build'] as bool? ?? true;
+      if (shouldBuild && !await stateFile.exists()) {
+        print('💡 No container image supplied. Running dtt build...');
+        final buildCmd = BuildCommand();
+        await buildCmd.run();
+      }
+
+      if (await stateFile.exists()) {
+        final stateContent = await stateFile.readAsString();
+        final stateJson = jsonDecode(stateContent) as Map<String, dynamic>;
+        containerImage =
+            stateJson['full_image_digest'] as String? ??
+            stateJson['image_url'] as String?;
+      }
+    }
+
+    if (containerImage == null || containerImage.isEmpty) {
+      throw StateError(
+        'No container image found! Specify --image=<url> or run dtt build first.',
+      );
+    }
+
+    print('🚀 Deploying infrastructure using container image: $containerImage');
+
+    final workspaceRoot =
+        _findWorkspaceRoot(packageDir) ?? p.dirname(packageDir);
+    var tfDir = Directory(p.join(workspaceRoot, 'terraform'));
+    if (!await tfDir.exists()) {
+      tfDir = Directory(p.join(packageDir, 'terraform'));
+    }
+    if (!await tfDir.exists()) {
+      throw FileSystemException(
+        'Terraform manifests directory not found. Run dtt generate first.',
+        tfDir.path,
+      );
+    }
+
+    final env = Map<String, String>.from(Platform.environment);
+    final adcTokenRes = await Process.run('gcloud', [
+      'auth',
+      'application-default',
+      'print-access-token',
+    ]);
+    if (adcTokenRes.exitCode == 0) {
+      final token = (adcTokenRes.stdout as String).trim();
+      if (token.isNotEmpty) {
+        env['CLOUDSDK_AUTH_ACCESS_TOKEN'] = token;
+        env['GOOGLE_OAUTH_ACCESS_TOKEN'] = token;
+      }
+    }
+
+    print('⚙️ Initializing Terraform in ${tfDir.path}...');
+    final initRes = await Process.run(
+      'terraform',
+      ['init'],
+      workingDirectory: tfDir.path,
+      environment: env,
+    );
+
+    if (initRes.exitCode != 0) {
+      stderr.write(initRes.stderr);
+      throw ProcessException(
+        'terraform',
+        ['init'],
+        'Terraform init failed',
+        initRes.exitCode,
+      );
+    }
+
+    print('🏗️ Applying Terraform configuration...');
+    final applyRes = await Process.run(
+      'terraform',
+      [
+        'apply',
+        '-auto-approve',
+        '-var=project_id=$projectId',
+        '-var=region=$region',
+        '-var=container_image=$containerImage',
+      ],
+      workingDirectory: tfDir.path,
+      environment: env,
+    );
+
+    if (applyRes.exitCode != 0) {
+      stderr.write(applyRes.stderr);
+      throw ProcessException(
+        'terraform',
+        ['apply'],
+        'Terraform apply failed',
+        applyRes.exitCode,
+      );
+    }
+
+    print(applyRes.stdout);
+    print('✅ Declarative Terraform deployment complete!');
+  }
+
+  String? _findWorkspaceRoot(String startDir) {
+    var dir = Directory(startDir);
+    while (true) {
+      final pubspec = File(p.join(dir.path, 'pubspec.yaml'));
+      if (pubspec.existsSync()) {
+        final content = pubspec.readAsStringSync();
+        if (content.contains('workspace:')) {
+          return dir.path;
+        }
+      }
+      final parent = dir.parent;
+      if (parent.path == dir.path) {
+        break;
+      }
+      dir = parent;
+    }
+    return null;
   }
 }
