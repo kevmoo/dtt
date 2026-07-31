@@ -252,8 +252,8 @@ CMD ["/app/server"]
       print('✅ Container build complete! Digest: $fullImageDigest');
       print('📄 Build state persisted to ${stateFile.path}');
     } finally {
-      if (stageDir.existsSync()) {
-        stageDir.deleteSync(recursive: true);
+      if (await stageDir.exists()) {
+        await stageDir.delete(recursive: true);
       }
     }
   }
