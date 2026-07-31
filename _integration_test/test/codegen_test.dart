@@ -463,5 +463,25 @@ triggers:
         check(mainTfContent).contains('RETRY_POLICY_RETRY');
       },
     );
+
+    test('dtt dev warns on invalid JSON payload fixture', () async {
+      var rootDir = Directory.current.path;
+      if (rootDir.endsWith('_integration_test')) {
+        rootDir = p.canonicalize(p.join(rootDir, '..'));
+      }
+      final exampleDir = p.join(rootDir, 'examples', 'firebase_auth_example');
+
+      final res = await Process.run('dart', [
+        'run',
+        'packages/dtt/bin/dtt.dart',
+        'dev',
+        '--package-dir=$exampleDir',
+        '--emit-event=google.cloud.storage.object.v1.finalized',
+        '--payload={not-valid-json',
+      ], workingDirectory: rootDir);
+
+      final output = '${res.stdout}\n${res.stderr}';
+      check(output).contains('Warning: Invalid JSON payload supplied');
+    });
   });
 }

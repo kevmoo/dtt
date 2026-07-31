@@ -84,7 +84,11 @@ class DevCommand extends Command<void> {
         } else {
           try {
             data = jsonDecode(payload) as Map<String, dynamic>;
-          } catch (_) {}
+          } catch (e) {
+            print(
+              '⚠️ Warning: Invalid JSON payload supplied ("$payload"): $e. Defaulting to fallback payload.',
+            );
+          }
         }
       }
 
