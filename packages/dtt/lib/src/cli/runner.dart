@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import 'package:args/command_runner.dart';
+import 'commands/build.dart';
 import 'commands/deploy.dart';
 import 'commands/dev.dart';
 import 'commands/generate.dart';
@@ -30,6 +31,7 @@ class DttCommandRunner extends CommandRunner<void> {
     addCommand(InitCommand());
     addCommand(TriggerCommand());
     addCommand(GenerateCommand());
+    addCommand(BuildCommand());
     addCommand(DeployCommand());
     addCommand(DevCommand());
   }

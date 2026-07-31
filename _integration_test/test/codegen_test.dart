@@ -64,11 +64,6 @@ triggers:
         check(serverContent).contains('void main() async {');
         check(serverContent).contains('await serveHandler(pipeline);');
 
-        final deployFile = File(p.join(packagePath, 'bin', 'deploy.dart'));
-        check(await deployFile.exists()).isTrue();
-        final deployContent = await deployFile.readAsString();
-        check(deployContent).contains('Directory.systemTemp');
-
         // 4. Assert generated Main Terraform manifest is pristine
         final mainTfFile = File(p.join(workspacePath, 'terraform', 'main.tf'));
         check(await mainTfFile.exists()).isTrue();
@@ -77,27 +72,25 @@ triggers:
         check(mainTfContent).contains('data "google_project" "project" {');
         check(
           mainTfContent,
-        ).contains('data "google_cloud_run_v2_service" "service"');
-        check(
-          mainTfContent,
-        ).contains('resource "null_resource" "cloud_run_deploy"');
+        ).contains('resource "google_cloud_run_v2_service" "service"');
         check(
           mainTfContent,
         ).contains('resource "google_service_account" "eventarc_invoker"');
         check(
           mainTfContent,
-        ).contains('name     = data.google_cloud_run_v2_service.service.name');
+        ).contains('name     = google_cloud_run_v2_service.service.name');
         check(mainTfContent).contains(
           'resource "google_eventarc_trigger" "trigger_auth_user_created"',
         );
         check(mainTfContent).contains('provider        = google-beta');
         check(
           mainTfContent,
-        ).contains('service = data.google_cloud_run_v2_service.service.name');
+        ).contains('service = google_cloud_run_v2_service.service.name');
         check(
           mainTfContent,
         ).contains('value     = "google.firebase.auth.user.v2.created"');
         check(mainTfContent).contains('path    = "/events/auth"');
+        check(mainTfContent).not((c) => c.contains('null_resource'));
 
         // 5. Assert generated Variables Terraform manifest is pristine
         final varsTfFile = File(
@@ -107,6 +100,7 @@ triggers:
 
         final varsTfContent = await varsTfFile.readAsString();
         check(varsTfContent).contains('default     = "n26-full-stack-dart"');
+        check(varsTfContent).contains('variable "container_image"');
 
         // 6. Assert generated Outputs Terraform manifest is pristine
         final outputsTfFile = File(
@@ -115,9 +109,9 @@ triggers:
         check(await outputsTfFile.exists()).isTrue();
 
         final outputsTfContent = await outputsTfFile.readAsString();
-        check(outputsTfContent).contains(
-          'value       = data.google_cloud_run_v2_service.service.uri',
-        );
+        check(
+          outputsTfContent,
+        ).contains('value       = google_cloud_run_v2_service.service.uri');
       },
     );
 
@@ -258,14 +252,6 @@ triggers:
         await generateProject(
           workspaceRoot: workspacePath,
           packageDir: packagePath,
-        );
-
-        final deployFile = File(p.join(packagePath, 'bin', 'deploy.dart'));
-        check(await deployFile.exists()).isTrue();
-        final deployContent = await deployFile.readAsString();
-        check(deployContent).contains(
-          '--labels=managed_by=dart_terraform_triggers,'
-          'env=staging,team=backend',
         );
 
         final mainTfFile = File(p.join(workspacePath, 'terraform', 'main.tf'));

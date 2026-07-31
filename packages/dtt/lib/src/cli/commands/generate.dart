@@ -29,35 +29,36 @@ class GenerateCommand extends Command<void> {
       'Terraform configuration manifests.';
 
   GenerateCommand() {
-    argParser.addFlag(
-      'force',
-      abbr: 'f',
-      negatable: false,
-      help:
-          'Force regeneration and override existing files in the workspace '
-          '(including handler callbacks).',
-    );
+    argParser
+      ..addOption(
+        'package-dir',
+        abbr: 'p',
+        defaultsTo: '.',
+        help: 'Path to target package directory containing dtt.yaml.',
+      )
+      ..addFlag(
+        'force',
+        abbr: 'f',
+        negatable: false,
+        help:
+            'Force regeneration and override existing files in the workspace '
+            '(including handler callbacks).',
+      );
   }
 
   @override
   Future<void> run() async {
-    final currentDir = Directory.current.path;
-    final workspaceRoot = _findWorkspaceRoot(currentDir);
-
-    if (workspaceRoot == null) {
-      throw StateError(
-        'Could not locate workspace root. '
-        'Ensure you run this command inside a Dart monorepo workspace '
-        'member directory.',
-      );
-    }
+    final packageDirParam = argResults?['package-dir'] as String? ?? '.';
+    final packageDir = p.canonicalize(packageDirParam);
+    final workspaceRoot =
+        _findWorkspaceRoot(packageDir) ?? p.dirname(packageDir);
 
     print(
       'Generating serverless triggers manifests inside workspace: '
-      '$workspaceRoot...',
+      '$workspaceRoot for package: $packageDir...',
     );
 
-    await generateProject(workspaceRoot: workspaceRoot, packageDir: currentDir);
+    await generateProject(workspaceRoot: workspaceRoot, packageDir: packageDir);
     print('Code and Terraform manifests generated successfully!');
   }
 
