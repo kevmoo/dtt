@@ -88,11 +88,21 @@ class _DttGenerator {
       }
     }
 
+    final securityProfile =
+        serviceNode['security_profile'] as String? ?? 'default';
+
     // 1. Generate the server entrypoint inside package bin/
     await _generateServer(serviceName, triggers);
 
     // 2. Generate secure regional Terraform manifests at root
-    await _generateTerraform(serviceName, projectId, region, triggers, labels);
+    await _generateTerraform(
+      serviceName,
+      projectId,
+      region,
+      securityProfile,
+      triggers,
+      labels,
+    );
   }
 
   Future<void> _generateServer(
@@ -202,6 +212,7 @@ class _DttGenerator {
     final String serviceName,
     final String projectId,
     final String region,
+    final String securityProfile,
     final List<TriggerConfig> triggers,
     final Map<String, String> labels,
   ) async {
@@ -219,6 +230,7 @@ class _DttGenerator {
     final mainFile = _buildMainTf(
       serviceName: serviceName,
       saAccountId: saAccountId,
+      securityProfile: securityProfile,
       triggers: triggers,
       labels: labels,
     );
@@ -326,9 +338,27 @@ HclFile _buildOutputsTf(List<TriggerConfig> triggers) {
   return outputsFile;
 }
 
+HclBlock _buildSecureCloudRunModuleResource({required String serviceName}) {
+  return HclBlock(type: 'module', labels: const <String>['secure_cloud_run'])
+    ..comment(
+      'Official Google Cloud Run Security Blueprint Module (secure-cloud-run-core)',
+    )
+    ..attribute(
+      'source',
+      const HclValue.string('GoogleCloudPlatform/cloud-run/google'),
+    )
+    ..attribute('version', const HclValue.string('~> 0.12.0'))
+    ..attribute('service_name', HclValue.string(serviceName))
+    ..attribute('project_id', const HclValue.raw('var.project_id'))
+    ..attribute('location', const HclValue.raw('var.region'))
+    ..attribute('image', const HclValue.raw('var.container_image'))
+    ..attribute('serverless_neg_only', const HclValue.boolean(true));
+}
+
 HclFile _buildMainTf({
   required String serviceName,
   required String saAccountId,
+  required String securityProfile,
   required List<TriggerConfig> triggers,
   required Map<String, String> labels,
 }) {
@@ -353,6 +383,12 @@ HclFile _buildMainTf({
     projectData,
   )) {
     mainFile.addBlock(block);
+  }
+
+  if (securityProfile == 'secure') {
+    mainFile.addBlock(
+      _buildSecureCloudRunModuleResource(serviceName: serviceName),
+    );
   }
 
   mainFile.addBlock(serviceResource);

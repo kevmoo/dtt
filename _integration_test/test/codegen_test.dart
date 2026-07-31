@@ -315,5 +315,78 @@ triggers:
         ).contains('value     = "google.cloud.firestore.document.v1.created"');
       },
     );
+
+    test(
+      'security_profile: secure emits module secure_cloud_run blueprint',
+      () async {
+        await d.dir('secure_package', [
+          d.file('dtt.yaml', '''
+service:
+  name: secure-service
+  project_id: secure-proj
+  region: us-central1
+  security_profile: secure
+
+triggers:
+  - name: on-gcs
+    type: google.cloud.storage.object.v1.finalized
+    bucket: sec-bucket
+    path: /events/sec
+    handler: onSec
+'''),
+        ]).create();
+
+        final workspacePath = d.sandbox;
+        final packagePath = p.join(workspacePath, 'secure_package');
+
+        await generateProject(
+          workspaceRoot: workspacePath,
+          packageDir: packagePath,
+        );
+
+        final mainTfFile = File(p.join(workspacePath, 'terraform', 'main.tf'));
+        final mainTfContent = await mainTfFile.readAsString();
+        check(mainTfContent).contains('module "secure_cloud_run" {');
+        check(mainTfContent).contains('GoogleCloudPlatform/cloud-run/google');
+        check(mainTfContent).contains('serverless_neg_only = true');
+      },
+    );
+
+    test(
+      'Cloud Run Integrations parameters mapping export schema parsing',
+      () async {
+        await d.dir('integrations_package', [
+          d.file('dtt.yaml', '''
+service:
+  name: integration-service
+  project_id: int-proj
+  region: us-central1
+
+triggers:
+  - name: export-trigger
+    parameters:
+      type: google.cloud.storage.object.v1.finalized
+      bucket: export-bucket
+      path: /events/export
+      handler: onExport
+'''),
+        ]).create();
+
+        final workspacePath = d.sandbox;
+        final packagePath = p.join(workspacePath, 'integrations_package');
+
+        await generateProject(
+          workspaceRoot: workspacePath,
+          packageDir: packagePath,
+        );
+
+        final mainTfFile = File(p.join(workspacePath, 'terraform', 'main.tf'));
+        final mainTfContent = await mainTfFile.readAsString();
+        check(
+          mainTfContent,
+        ).contains('value     = "google.cloud.storage.object.v1.finalized"');
+        check(mainTfContent).contains('value     = "export-bucket"');
+      },
+    );
   });
 }
