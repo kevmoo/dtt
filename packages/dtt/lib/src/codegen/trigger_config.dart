@@ -44,67 +44,92 @@ base class TriggerConfig {
     required this.type,
     required this.path,
     required this.handler,
+    this.resourceRef,
   });
 
   final String name;
   final TriggerType type;
   final String path;
   final String handler;
+  final String? resourceRef;
 
   TriggerTypeMeta get meta => type.meta;
 
   factory TriggerConfig.fromYaml(YamlMap node) {
-    if (node case {
-      'name': final String name,
-      'type': final String typeStr,
-      'path': final String path,
-      'handler': final String handler,
-    }) {
-      final type = TriggerType.fromIdentifier(typeStr);
-      return switch (type) {
-        TriggerType.gcsObjectFinalized ||
-        TriggerType.gcsObjectDeleted ||
-        TriggerType.gcsObjectArchived ||
-        TriggerType.gcsObjectMetadataUpdated => StorageTriggerConfig._(
-          name: name,
-          type: type,
-          path: path,
-          handler: handler,
-          bucket:
-              node['bucket'] as String? ??
-              (throw FormatException(
-                'Cloud Storage trigger [$name] missing required [bucket] '
-                'declaration.',
-              )),
-        ),
-        TriggerType.firestoreDocumentWritten ||
-        TriggerType.firestoreDocumentCreated ||
-        TriggerType.firestoreDocumentUpdated ||
-        TriggerType.firestoreDocumentDeleted => FirestoreTriggerConfig._(
-          name: name,
-          type: type,
-          path: path,
-          handler: handler,
-          document:
-              node['document'] as String? ??
-              (throw FormatException(
-                'Firestore trigger [$name] missing required [document] '
-                'declaration.',
-              )),
-          database: node['database'] as String? ?? '(default)',
-        ),
-        _ => TriggerConfig._(
-          name: name,
-          type: type,
-          path: path,
-          handler: handler,
-        ),
-      };
+    final paramsNode = node['parameters'] as YamlMap?;
+    final name = node['name'] as String? ?? 'trigger';
+    final typeStr =
+        (node['type'] as String?) ?? (paramsNode?['type'] as String?);
+    final path =
+        (node['path'] as String?) ??
+        (paramsNode?['path'] as String?) ??
+        '/events';
+    final handler =
+        (node['handler'] as String?) ??
+        (paramsNode?['handler'] as String?) ??
+        'onEvent';
+    final resourceRef =
+        (node['resource_ref'] as String?) ??
+        (paramsNode?['resource_ref'] as String?);
+
+    if (typeStr == null) {
+      throw const FormatException(
+        'Trigger declaration missing required [type] attribute.',
+      );
     }
-    throw const FormatException(
-      'Trigger mappings must specify name, type, path, and handler '
-      'callbacks.',
-    );
+
+    final type = TriggerType.fromIdentifier(typeStr);
+    final bucket =
+        (node['bucket'] as String?) ?? (paramsNode?['bucket'] as String?);
+    final document =
+        (node['document'] as String?) ?? (paramsNode?['document'] as String?);
+    final database =
+        (node['database'] as String?) ??
+        (paramsNode?['database'] as String?) ??
+        '(default)';
+
+    return switch (type) {
+      TriggerType.gcsObjectFinalized ||
+      TriggerType.gcsObjectDeleted ||
+      TriggerType.gcsObjectArchived ||
+      TriggerType.gcsObjectMetadataUpdated => StorageTriggerConfig._(
+        name: name,
+        type: type,
+        path: path,
+        handler: handler,
+        resourceRef: resourceRef,
+        bucket:
+            bucket ??
+            (throw FormatException(
+              'Cloud Storage trigger [$name] missing required [bucket] '
+              'declaration.',
+            )),
+      ),
+      TriggerType.firestoreDocumentWritten ||
+      TriggerType.firestoreDocumentCreated ||
+      TriggerType.firestoreDocumentUpdated ||
+      TriggerType.firestoreDocumentDeleted => FirestoreTriggerConfig._(
+        name: name,
+        type: type,
+        path: path,
+        handler: handler,
+        resourceRef: resourceRef,
+        document:
+            document ??
+            (throw FormatException(
+              'Firestore trigger [$name] missing required [document] '
+              'declaration.',
+            )),
+        database: database,
+      ),
+      _ => TriggerConfig._(
+        name: name,
+        type: type,
+        path: path,
+        handler: handler,
+        resourceRef: resourceRef,
+      ),
+    };
   }
 }
 
@@ -114,6 +139,7 @@ final class StorageTriggerConfig extends TriggerConfig {
     required super.type,
     required super.path,
     required super.handler,
+    super.resourceRef,
     required this.bucket,
   }) : super._();
 
@@ -126,6 +152,7 @@ final class FirestoreTriggerConfig extends TriggerConfig {
     required super.type,
     required super.path,
     required super.handler,
+    super.resourceRef,
     required this.document,
     this.database = '(default)',
   }) : super._();
