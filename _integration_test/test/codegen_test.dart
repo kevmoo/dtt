@@ -213,14 +213,15 @@ triggers:
         check(mainTfContent).contains('attribute = "document"');
         check(mainTfContent).contains('value     = "documents/users/{userId}"');
         check(mainTfContent).contains(
-          'resource "google_project_iam_member" "firestore_pubsub_publisher"',
+          'resource "google_pubsub_topic_iam_member" "firestore_pubsub_publisher"',
         );
         check(mainTfContent).contains(
-          'resource "google_project_iam_audit_config" "all_services_audit"',
+          'resource "google_project_iam_audit_config" "firestore_audit"',
         );
-        check(mainTfContent).contains('service = "allServices"');
+        check(mainTfContent).contains('service = "firestore.googleapis.com"');
         check(mainTfContent).contains('log_type = "DATA_WRITE"');
         check(mainTfContent).contains('log_type = "DATA_READ"');
+        check(mainTfContent).not((c) => c.contains('service = "allServices"'));
       },
     );
 

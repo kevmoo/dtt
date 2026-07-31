@@ -368,6 +368,7 @@ HclFile _buildMainTf({
 
   for (final block in _buildServiceAgentIamBlocks(
     triggers,
+    serviceName,
     projectData,
     serviceAccount,
   )) {
@@ -534,6 +535,7 @@ List<HclBlock> _buildServiceAccountAndInvoker(
 
 List<HclBlock> _buildServiceAgentIamBlocks(
   List<TriggerConfig> triggers,
+  String serviceName,
   HclBlock projectData,
   HclBlock serviceAccount,
 ) {
@@ -542,18 +544,30 @@ List<HclBlock> _buildServiceAgentIamBlocks(
   final hasStorage = triggers.any((t) => t is StorageTriggerConfig);
 
   if (hasFirestore) {
+    // TASK-201: Scope Pub/Sub publisher role to target topic
+    final firestoreTopic =
+        HclBlock(
+            type: 'resource',
+            labels: const <String>['google_pubsub_topic', 'firestore_topic'],
+          )
+          ..comment(
+            'Target Pub/Sub transport topic for Firestore Eventarc signals',
+          )
+          ..attribute('name', HclValue.string('$serviceName-firestore-topic'));
+    blocks.add(firestoreTopic);
+
     blocks.add(
       HclBlock(
           type: 'resource',
           labels: const <String>[
-            'google_project_iam_member',
+            'google_pubsub_topic_iam_member',
             'firestore_pubsub_publisher',
           ],
         )
         ..comment(
-          'Grant Cloud Firestore Service Agent permissions to publish to transport topics',
+          'Grant Cloud Firestore Service Agent permissions on specific Pub/Sub topic (Least Privilege)',
         )
-        ..attribute('project', const HclValue.raw('var.project_id'))
+        ..attribute('topic', firestoreTopic.ref('name'))
         ..attribute('role', const HclValue.string('roles/pubsub.publisher'))
         ..attribute(
           'member',
@@ -564,19 +578,23 @@ List<HclBlock> _buildServiceAgentIamBlocks(
         ),
     );
 
+    // TASK-202: Replace allServices audit config with targeted firestore.googleapis.com audit config
     blocks.add(
       HclBlock(
           type: 'resource',
           labels: const <String>[
             'google_project_iam_audit_config',
-            'all_services_audit',
+            'firestore_audit',
           ],
         )
         ..comment(
-          'Enable Project-Wide Data Access Audit Logs for all services to forward triggers event signals',
+          'Enable Targeted Data Access Audit Logs for Cloud Firestore (Least Privilege)',
         )
         ..attribute('project', const HclValue.raw('var.project_id'))
-        ..attribute('service', const HclValue.string('allServices'))
+        ..attribute(
+          'service',
+          const HclValue.string('firestore.googleapis.com'),
+        )
         ..addBlock(
           HclBlock(type: 'audit_log_config')
             ..attribute('log_type', const HclValue.string('DATA_WRITE')),
@@ -598,18 +616,30 @@ List<HclBlock> _buildServiceAgentIamBlocks(
     );
     blocks.add(gcsAccountData);
 
+    // TASK-201: Scope Pub/Sub publisher role to target topic for Cloud Storage
+    final storageTopic =
+        HclBlock(
+            type: 'resource',
+            labels: const <String>['google_pubsub_topic', 'storage_topic'],
+          )
+          ..comment(
+            'Target Pub/Sub transport topic for Storage Eventarc signals',
+          )
+          ..attribute('name', HclValue.string('$serviceName-storage-topic'));
+    blocks.add(storageTopic);
+
     blocks.add(
       HclBlock(
           type: 'resource',
           labels: const <String>[
-            'google_project_iam_member',
+            'google_pubsub_topic_iam_member',
             'storage_pubsub_publisher',
           ],
         )
         ..comment(
-          'Grant Cloud Storage Service Agent permissions to publish to transport topics',
+          'Grant Cloud Storage Service Agent permissions on specific Pub/Sub topic (Least Privilege)',
         )
-        ..attribute('project', const HclValue.raw('var.project_id'))
+        ..attribute('topic', storageTopic.ref('name'))
         ..attribute('role', const HclValue.string('roles/pubsub.publisher'))
         ..attribute(
           'member',
