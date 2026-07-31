@@ -1,5 +1,21 @@
+# Google Cloud Events (`google_cloud_events`)
+
 Pre-compiled, type-safe Dart Protobuf classes representing canonical Google
 Cloud Platform (GCP) and Firebase Eventarc payload definitions.
+
+---
+
+## 💡 Usage Example
+
+```dart
+import 'package:google_cloud_events/google_cloud_events.dart';
+
+void processStorageEvent(StorageObjectData data) {
+  print('Bucket: ${data.bucket}');
+  print('Object Name: ${data.name}');
+  print('Content Type: ${data.contentType}');
+}
+```
 
 ---
 

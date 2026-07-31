@@ -13,75 +13,78 @@ A high-performance, developer-centric toolchain and library designed to make it 
 
 ---
 
+## 📦 Package Ecosystem
+
+| Package | Version | Description |
+| :--- | :--- | :--- |
+| [**`dtt`**](packages/dtt) | [![pub package](https://img.shields.io/pub/v/dtt.svg)](https://pub.dev/packages/dtt) | Developer CLI tool (`dart pub global activate dtt`) for scaffolding, building, and deploying. |
+| [**`dtt_runtime`**](packages/dtt_runtime) | [![pub package](https://img.shields.io/pub/v/dtt_runtime.svg)](https://pub.dev/packages/dtt_runtime) | Shelf event routing engine, `DttEventRouter`, and `EventSimulator` test harness. |
+| [**`google_cloud_events`**](packages/google_cloud_events) | [![pub package](https://img.shields.io/pub/v/google_cloud_events.svg)](https://pub.dev/packages/google_cloud_events) | Pre-compiled Protobuf payload data classes for GCP & Firebase Eventarc triggers. |
+| [**`firebase_auth_example`**](examples/firebase_auth_example) | Example | Runnable end-to-end sample microservice. |
+
+---
+
 ## 📖 Navigating the Project
 
 Explore the canonical specifications and operational walkthroughs below:
 
-* **[Technical Architecture](docs/architecture.md)**: Deep dive into data
-  flows, OIDC authentication, schema resolvers, and custom routing engines.
-* **[Security Threat Model](docs/threat_model.md)**: High-fidelity security
-  mapping detailing trust boundaries, privileged operations, and lockdowns.
-* **[Production Deployment Guide](docs/deployment_guide.md)**: Operational
-  guide covering Cloud Run perimeter security, IAM invokers, and verification.
-* **[Maintainer Toolchain Guide](tool/README.md)**: Execution sequence and
-  architecture for our two-stage offline catalog codegen scripts.
+* **[CLI Reference Manual](packages/dtt/README.md)**: Full `dtt` command & flag reference matrix and `dtt.yaml` manifest schema specifications.
+* **[Runtime API Guide](packages/dtt_runtime/README.md)**: Programmatic Shelf router registration, CloudEvent handlers, and unit testing using `EventSimulator`.
+* **[Technical Architecture](docs/architecture.md)**: Deep dive into data flows, OIDC authentication, schema resolvers, and custom routing engines.
+* **[Security Threat Model](docs/threat_model.md)**: High-fidelity security mapping detailing trust boundaries, privileged operations, and lockdowns.
+* **[Production Deployment Guide](docs/deployment_guide.md)**: Operational guide covering Cloud Run perimeter security, IAM invokers, and verification.
+* **[Maintainer Toolchain Guide](tool/README.md)**: Execution sequence and architecture for our two-stage offline catalog codegen scripts.
 
 ---
 
 ## ⚡ The Developer Experience: End-to-End
 
-With `dtt`, configuring, coding, and deploying an event-driven serverless system is compressed into a few clean terminal commands:
+With `dtt`, configuring, coding, testing, and deploying an event-driven serverless system is compressed into clean terminal commands:
 
 ### 1. Initialize your Project Workspace
 ```bash
 dtt init --project-id=my-gcp-project --service-name=gcs-uploader
 ```
-This scaffolds a standard Dart microservice equipped with our server structure and establishes the root [dtt.yaml](dtt.yaml) configuration file.
+Scaffolds a standard Dart microservice and establishes the root `dtt.yaml` configuration manifest.
 
-### 2. Register an Eventarc Trigger Interactively
+### 2. Register an Eventarc Trigger
 ```bash
 dtt trigger add --type=google.cloud.storage.object.v1.finalized --handler=onNewUpload
 ```
-Behind the scenes, the CLI:
-1. Connects to the GCP Eventarc catalog.
-2. Resolves the Event payload schema (`StorageObjectData` protobuf model).
-3. Downloads the official `.proto` definitions from the `google-cloudevents` repository.
-4. Compiles the schema to type-safe Dart classes under `lib/src/generated/`.
-5. Scaffolds a strongly-typed handler function inside `lib/src/handlers/on_new_upload.dart` and wires it to your Shelf event router.
+Downloads Protobuf models, compiles type-safe Dart classes under `lib/src/generated/`, and scaffolds a strongly-typed handler.
 
 ### 3. Implement Type-Safe Business Logic
-Open your new handler file and write standard, IDE-autocompleted, type-safe Dart:
-
 ```dart
 // lib/src/handlers/on_new_upload.dart
-import 'package:google_cloudevents/storage_object_data.pb.dart';
-import 'package:dart_terraform_triggers/cloudevents.dart';
+import 'package:google_cloud_events/google_cloud_events.dart';
+import 'package:dtt_runtime/dtt_runtime.dart';
 
 void onNewUpload(CloudEvent<StorageObjectData> event) {
   final StorageObjectData metadata = event.data;
-  
-  print('Processing file upload event ID: ${event.id}');
-  print('File Bucket: ${metadata.bucket}');
-  print('File Name: ${metadata.name}');
-  print('File Size: ${metadata.size} bytes');
-  print('Content Type: ${metadata.contentType}');
+  print('Processing file upload ID: ${event.id} in bucket: ${metadata.bucket}');
 }
 ```
 
-### 4. Direct Production Deployment
-When you are ready to ship to Google Cloud Platform, simply execute:
+### 4. Local Event Simulation (Offline Development)
 ```bash
+dtt dev --emit-event=google.cloud.storage.object.v1.finalized \
+        --payload='{"bucket":"test-bucket","name":"sample.txt"}'
+```
+Boots a local development server and simulates CloudEvent triggers offline.
+
+### 5. Build & Deploy Infrastructure
+```bash
+dtt build --tag=v1.0.0
 dtt deploy
 ```
-The CLI automatically:
-1. Builds a micro-sized, statically-linked release Dart AOT binary container (Docker).
-2. Pushes your container to Google Artifact Registry.
-3. Generates standardized, secure Terraform configurations.
-4. Invokes `terraform init` and `terraform apply` to safely provision the Trigger and Cloud Run services with minimum-privilege service account scopes and closed ingress configurations.
+Compiles Dart AOT container images, pushes to Google Artifact Registry, and provisions zero-trust Cloud Run & Eventarc infrastructure via Terraform.
 
-### 5. Live Cloud Verification
-Once deployed, verify your event routing pipeline immediately using two simple
-terminal commands:
+> 👉 **For the complete `dtt.yaml` manifest schema and CLI flag matrix, see [packages/dtt Documentation](packages/dtt/README.md).**
+
+---
+
+### 6. Live Cloud Verification
+Once deployed, verify your event routing pipeline immediately using two simple terminal commands:
 
 #### Trigger the Event (Trivial GCS write)
 Pipe any test snippet directly into your Terraform-provisioned bucket:
