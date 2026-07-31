@@ -12,48 +12,120 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import 'package:args/command_runner.dart';
+import 'dart:convert';
+import 'dart:io';
 
+import 'package:args/command_runner.dart';
+import 'package:dtt_runtime/dtt_runtime.dart';
+import 'package:path/path.dart' as p;
+
+import '../../codegen/generator.dart';
+
+/// Command [dtt dev] for local server booting and local event simulation test harness.
 class DevCommand extends Command<void> {
   @override
   final String name = 'dev';
 
   @override
   final String description =
-      'Internal developer and maintainer system tool utilities (hidden).';
-
-  @override
-  // Excludes command listing from standard user-facing --help panels
-  final bool hidden = true;
+      'Boots local development Shelf server and runs local CloudEvent simulations.';
 
   DevCommand() {
-    addSubcommand(CompileCatalogCommand());
+    argParser
+      ..addOption(
+        'package-dir',
+        abbr: 'p',
+        help: 'Target package folder path (defaults to current directory).',
+      )
+      ..addOption(
+        'port',
+        help: 'Local server port for development testing.',
+        defaultsTo: '8080',
+      )
+      ..addOption(
+        'emit-event',
+        help:
+            'CloudEvent type to emit locally (e.g. google.cloud.storage.object.v1.finalized).',
+      )
+      ..addOption(
+        'payload',
+        help: 'Path to JSON fixture file or inline JSON string data.',
+      )
+      ..addOption(
+        'path',
+        help: 'Target HTTP path endpoint for local event simulation.',
+        defaultsTo: '/events/uploads',
+      );
   }
-}
-
-class CompileCatalogCommand extends Command<void> {
-  @override
-  final String name = 'compile-catalog';
 
   @override
-  final String description =
-      'Compile 100% of the official Google CloudEvents Protobuf '
-      'schemas recursively into package:google_cloud_events.';
+  Future<void> run() async {
+    final packageDir =
+        argResults?['package-dir'] as String? ?? Directory.current.path;
+    final portStr = argResults?['port'] as String? ?? '8080';
+    final port = int.tryParse(portStr) ?? 8080;
+    final emitEvent = argResults?['emit-event'] as String?;
+    final payload = argResults?['payload'] as String?;
+    final eventPath = argResults?['path'] as String? ?? '/events/uploads';
 
-  CompileCatalogCommand() {
-    argParser.addOption(
-      'source',
-      abbr: 's',
-      mandatory: true,
-      help:
-          'Path to local clone of googleapis/google-cloudevents '
-          'repository.',
+    final workspaceRoot = _resolveWorkspaceRoot(packageDir);
+
+    // Generate bin/server.dart first
+    await generateProject(workspaceRoot: workspaceRoot, packageDir: packageDir);
+
+    if (emitEvent != null) {
+      // Run local event simulation!
+      Map<String, dynamic> data = {'simulated': true};
+      if (payload != null) {
+        if (File(payload).existsSync()) {
+          data =
+              jsonDecode(await File(payload).readAsString())
+                  as Map<String, dynamic>;
+        } else {
+          try {
+            data = jsonDecode(payload) as Map<String, dynamic>;
+          } catch (_) {}
+        }
+      }
+
+      print(
+        '🚀 Emitting simulated CloudEvent [$emitEvent] to http://localhost:$port$eventPath...',
+      );
+      final simulator = EventSimulator(targetUrl: 'http://localhost:$port');
+      final res = await simulator.sendBinaryEvent(
+        path: eventPath,
+        eventType: emitEvent,
+        source: '//local/dev/simulator',
+        data: data,
+      );
+
+      print('Status: ${res.statusCode}');
+      print('Response: ${res.body}');
+      simulator.close();
+      return;
+    }
+
+    print('🚀 Starting local development server on http://localhost:$port...');
+    final serverFile = File(p.join(packageDir, 'bin', 'server.dart'));
+    final process = await Process.start(
+      'dart',
+      ['run', serverFile.path],
+      environment: {'PORT': '$port'},
+      mode: ProcessStartMode.inheritStdio,
     );
+
+    await process.exitCode;
   }
 
-  @override
-  void run() {
-    final source = argResults?['source'];
-    print('Command dev compile-catalog initiated. Source: $source');
+  String _resolveWorkspaceRoot(String startPath) {
+    var dir = Directory(startPath).absolute;
+    while (dir.parent.path != dir.path) {
+      final tfDir = Directory(p.join(dir.path, 'terraform'));
+      if (tfDir.existsSync()) {
+        return dir.path;
+      }
+      dir = dir.parent;
+    }
+    return startPath;
   }
 }

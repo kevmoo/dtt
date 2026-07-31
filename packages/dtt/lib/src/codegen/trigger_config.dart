@@ -45,6 +45,8 @@ base class TriggerConfig {
     required this.path,
     required this.handler,
     this.resourceRef,
+    this.deadLetterTopic,
+    this.retryPolicy,
   });
 
   final String name;
@@ -52,6 +54,8 @@ base class TriggerConfig {
   final String path;
   final String handler;
   final String? resourceRef;
+  final String? deadLetterTopic;
+  final String? retryPolicy;
 
   TriggerTypeMeta get meta => type.meta;
 
@@ -71,6 +75,12 @@ base class TriggerConfig {
     final resourceRef =
         (node['resource_ref'] as String?) ??
         (paramsNode?['resource_ref'] as String?);
+    final deadLetterTopic =
+        (node['dead_letter_topic'] as String?) ??
+        (paramsNode?['dead_letter_topic'] as String?);
+    final retryPolicy =
+        (node['retry_policy'] as String?) ??
+        (paramsNode?['retry_policy'] as String?);
 
     if (typeStr == null) {
       throw const FormatException(
@@ -98,6 +108,8 @@ base class TriggerConfig {
         path: path,
         handler: handler,
         resourceRef: resourceRef,
+        deadLetterTopic: deadLetterTopic,
+        retryPolicy: retryPolicy,
         bucket:
             bucket ??
             (throw FormatException(
@@ -114,6 +126,8 @@ base class TriggerConfig {
         path: path,
         handler: handler,
         resourceRef: resourceRef,
+        deadLetterTopic: deadLetterTopic,
+        retryPolicy: retryPolicy,
         document:
             document ??
             (throw FormatException(
@@ -128,6 +142,8 @@ base class TriggerConfig {
         path: path,
         handler: handler,
         resourceRef: resourceRef,
+        deadLetterTopic: deadLetterTopic,
+        retryPolicy: retryPolicy,
       ),
     };
   }
@@ -140,6 +156,8 @@ final class StorageTriggerConfig extends TriggerConfig {
     required super.path,
     required super.handler,
     super.resourceRef,
+    super.deadLetterTopic,
+    super.retryPolicy,
     required this.bucket,
   }) : super._();
 
@@ -153,6 +171,8 @@ final class FirestoreTriggerConfig extends TriggerConfig {
     required super.path,
     required super.handler,
     super.resourceRef,
+    super.deadLetterTopic,
+    super.retryPolicy,
     required this.document,
     this.database = '(default)',
   }) : super._();

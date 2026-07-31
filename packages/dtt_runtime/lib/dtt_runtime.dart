@@ -14,3 +14,4 @@
 
 export 'src/cloudevent.dart';
 export 'src/router.dart';
+export 'src/simulator.dart';
