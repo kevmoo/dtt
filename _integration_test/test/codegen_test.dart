@@ -388,5 +388,100 @@ triggers:
         check(mainTfContent).contains('value     = "export-bucket"');
       },
     );
+
+    test(
+      'kind: job emits resource google_cloud_run_v2_job for async execution',
+      () async {
+        await d.dir('job_package', [
+          d.file('dtt.yaml', '''
+service:
+  name: batch-job
+  kind: job
+  project_id: job-proj
+  region: us-central1
+
+triggers:
+  - name: on-gcs-job
+    type: google.cloud.storage.object.v1.finalized
+    bucket: job-bucket
+    path: /events/job
+    handler: onJob
+'''),
+        ]).create();
+
+        final workspacePath = d.sandbox;
+        final packagePath = p.join(workspacePath, 'job_package');
+
+        await generateProject(
+          workspaceRoot: workspacePath,
+          packageDir: packagePath,
+        );
+
+        final mainTfFile = File(p.join(workspacePath, 'terraform', 'main.tf'));
+        final mainTfContent = await mainTfFile.readAsString();
+        check(
+          mainTfContent,
+        ).contains('resource "google_cloud_run_v2_job" "job"');
+      },
+    );
+
+    test(
+      'dead_letter_topic and retry_policy generates Eventarc resiliency blocks',
+      () async {
+        await d.dir('resiliency_package', [
+          d.file('dtt.yaml', '''
+service:
+  name: resilient-service
+  project_id: res-proj
+  region: us-central1
+
+triggers:
+  - name: on-resilient-event
+    type: google.cloud.storage.object.v1.finalized
+    bucket: res-bucket
+    path: /events/res
+    handler: onRes
+    dead_letter_topic: projects/res-proj/topics/my-dlq-topic
+    retry_policy: RETRY_POLICY_RETRY
+'''),
+        ]).create();
+
+        final workspacePath = d.sandbox;
+        final packagePath = p.join(workspacePath, 'resiliency_package');
+
+        await generateProject(
+          workspaceRoot: workspacePath,
+          packageDir: packagePath,
+        );
+
+        final mainTfFile = File(p.join(workspacePath, 'terraform', 'main.tf'));
+        final mainTfContent = await mainTfFile.readAsString();
+        check(mainTfContent).contains('pubsub {');
+        check(
+          mainTfContent,
+        ).contains('topic = "projects/res-proj/topics/my-dlq-topic"');
+        check(mainTfContent).contains('RETRY_POLICY_RETRY');
+      },
+    );
+
+    test('dtt dev warns on invalid JSON payload fixture', () async {
+      var rootDir = Directory.current.path;
+      if (rootDir.endsWith('_integration_test')) {
+        rootDir = p.canonicalize(p.join(rootDir, '..'));
+      }
+      final exampleDir = p.join(rootDir, 'examples', 'firebase_auth_example');
+
+      final res = await Process.run('dart', [
+        'run',
+        'packages/dtt/bin/dtt.dart',
+        'dev',
+        '--package-dir=$exampleDir',
+        '--emit-event=google.cloud.storage.object.v1.finalized',
+        '--payload={not-valid-json',
+      ], workingDirectory: rootDir);
+
+      final output = '${res.stdout}\n${res.stderr}';
+      check(output).contains('Warning: Invalid JSON payload supplied');
+    });
   });
 }

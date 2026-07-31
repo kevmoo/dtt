@@ -90,6 +90,7 @@ class _DttGenerator {
 
     final securityProfile =
         serviceNode['security_profile'] as String? ?? 'default';
+    final kind = serviceNode['kind'] as String? ?? 'service';
 
     // 1. Generate the server entrypoint inside package bin/
     await _generateServer(serviceName, triggers);
@@ -100,6 +101,7 @@ class _DttGenerator {
       projectId,
       region,
       securityProfile,
+      kind,
       triggers,
       labels,
     );
@@ -213,6 +215,7 @@ class _DttGenerator {
     final String projectId,
     final String region,
     final String securityProfile,
+    final String kind,
     final List<TriggerConfig> triggers,
     final Map<String, String> labels,
   ) async {
@@ -231,6 +234,7 @@ class _DttGenerator {
       serviceName: serviceName,
       saAccountId: saAccountId,
       securityProfile: securityProfile,
+      kind: kind,
       triggers: triggers,
       labels: labels,
     );
@@ -359,15 +363,18 @@ HclFile _buildMainTf({
   required String serviceName,
   required String saAccountId,
   required String securityProfile,
+  required String kind,
   required List<TriggerConfig> triggers,
   required Map<String, String> labels,
 }) {
   final mainFile = HclFile();
   final hasGlobal = triggers.any((t) => t.meta.isGlobal);
 
-  final serviceResource = _buildCloudRunV2ServiceResource(
-    serviceName: serviceName,
-  );
+  final isJob = kind == 'job';
+  final serviceResource = isJob
+      ? _buildCloudRunV2JobResource(serviceName: serviceName)
+      : _buildCloudRunV2ServiceResource(serviceName: serviceName);
+
   final projectData = HclBlock(
     type: 'data',
     labels: const <String>['google_project', 'project'],
@@ -423,6 +430,29 @@ HclFile _buildMainTf({
   }
 
   return mainFile;
+}
+
+HclBlock _buildCloudRunV2JobResource({required String serviceName}) {
+  final jobResource =
+      HclBlock(
+          type: 'resource',
+          labels: const <String>['google_cloud_run_v2_job', 'job'],
+        )
+        ..comment(
+          'Declarative Cloud Run v2 Job Specification (Async Execution)',
+        )
+        ..attribute('name', HclValue.string(serviceName))
+        ..attribute('location', const HclValue.raw('var.region'))
+        ..attribute('deletion_protection', const HclValue.boolean(false));
+
+  final containersBlock = HclBlock(type: 'containers')
+    ..attribute('image', const HclValue.raw('var.container_image'));
+
+  final templateBlock = HclBlock(type: 'template');
+  templateBlock.addBlock(containersBlock);
+
+  jobResource.addBlock(templateBlock);
+  return jobResource;
 }
 
 HclBlock _buildCloudRunV2ServiceResource({required String serviceName}) {
@@ -818,6 +848,22 @@ HclBlock _buildEventarcTriggerBlock(
   for (final criteria in criteriaList) {
     triggerBlock.addBlock(criteria);
   }
+
+  if (trigger.deadLetterTopic != null) {
+    final pubsubTransport = HclBlock(type: 'pubsub')
+      ..attribute('topic', HclValue.string(trigger.deadLetterTopic!));
+    final transportBlock = HclBlock(type: 'transport')
+      ..addBlock(pubsubTransport);
+    triggerBlock.addBlock(transportBlock);
+  }
+
+  if (trigger.retryPolicy != null) {
+    triggerBlock.attribute(
+      'retry_policy',
+      HclValue.string(trigger.retryPolicy!),
+    );
+  }
+
   return triggerBlock;
 }
 
