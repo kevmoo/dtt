@@ -255,50 +255,48 @@ class _DttGenerator {
 
 HclFile _buildVariablesTf(String projectId, String region) {
   final variablesFile = HclFile();
-
-  final varProjectId =
-      HclBlock(type: 'variable', labels: const <String>['project_id'])
-        ..attribute('type', const HclValue.raw('string'))
-        ..attribute(
-          'description',
-          const HclValue.string('Target Google Cloud Platform Project ID.'),
-        )
-        ..attribute('default', HclValue.string(projectId));
-  variablesFile.addBlock(varProjectId);
-
-  final varRegion = HclBlock(type: 'variable', labels: const <String>['region'])
-    ..attribute('type', const HclValue.raw('string'))
-    ..attribute(
-      'description',
-      const HclValue.string('Target GCP region for resources deployment.'),
-    )
-    ..attribute('default', HclValue.string(region));
-  variablesFile.addBlock(varRegion);
-
-  final varImage =
-      HclBlock(type: 'variable', labels: const <String>['container_image'])
-        ..attribute('type', const HclValue.raw('string'))
-        ..attribute(
-          'description',
-          const HclValue.string(
-            'Target Docker/Artifact Registry container image URL or digest.',
-          ),
-        );
-  variablesFile.addBlock(varImage);
-
-  final varGcloud =
-      HclBlock(type: 'variable', labels: const <String>['gcloud_path'])
-        ..attribute('type', const HclValue.raw('string'))
-        ..attribute(
-          'description',
-          const HclValue.string(
-            'Executable path or command name for the Google Cloud SDK CLI.',
-          ),
-        )
-        ..attribute('default', const HclValue.string('gcloud'));
-  variablesFile.addBlock(varGcloud);
-
+  variablesFile.addBlock(
+    _buildVariableBlock(
+      'project_id',
+      'Target Google Cloud Platform Project ID.',
+      defaultValue: projectId,
+    ),
+  );
+  variablesFile.addBlock(
+    _buildVariableBlock(
+      'region',
+      'Target GCP region for resources deployment.',
+      defaultValue: region,
+    ),
+  );
+  variablesFile.addBlock(
+    _buildVariableBlock(
+      'container_image',
+      'Target Docker/Artifact Registry container image URL or digest.',
+    ),
+  );
+  variablesFile.addBlock(
+    _buildVariableBlock(
+      'gcloud_path',
+      'Executable path or command name for the Google Cloud SDK CLI.',
+      defaultValue: 'gcloud',
+    ),
+  );
   return variablesFile;
+}
+
+HclBlock _buildVariableBlock(
+  String name,
+  String description, {
+  String? defaultValue,
+}) {
+  final block = HclBlock(type: 'variable', labels: <String>[name])
+    ..attribute('type', const HclValue.raw('string'))
+    ..attribute('description', HclValue.string(description));
+  if (defaultValue != null) {
+    block.attribute('default', HclValue.string(defaultValue));
+  }
+  return block;
 }
 
 HclFile _buildOutputsTf(List<TriggerConfig> triggers) {
@@ -816,30 +814,14 @@ HclBlock _buildEventarcTriggerBlock(
 
   final destination = HclBlock(type: 'destination')..addBlock(cloudRunService);
 
-  final criteriaList = [
-    HclBlock(type: 'matching_criteria')
-      ..attribute('attribute', const HclValue.string('type'))
-      ..attribute('value', HclValue.string(type)),
-  ];
+  final criteriaList = [_buildMatchingCriteria('type', type)];
 
   switch (trigger) {
     case FirestoreTriggerConfig(:final database, :final document):
-      criteriaList.add(
-        HclBlock(type: 'matching_criteria')
-          ..attribute('attribute', const HclValue.string('database'))
-          ..attribute('value', HclValue.string(database)),
-      );
-      criteriaList.add(
-        HclBlock(type: 'matching_criteria')
-          ..attribute('attribute', const HclValue.string('document'))
-          ..attribute('value', HclValue.string(document)),
-      );
+      criteriaList.add(_buildMatchingCriteria('database', database));
+      criteriaList.add(_buildMatchingCriteria('document', document));
     case StorageTriggerConfig(:final bucket):
-      criteriaList.add(
-        HclBlock(type: 'matching_criteria')
-          ..attribute('attribute', const HclValue.string('bucket'))
-          ..attribute('value', HclValue.string(bucket)),
-      );
+      criteriaList.add(_buildMatchingCriteria('bucket', bucket));
     case TriggerConfig():
       break;
   }
@@ -866,6 +848,11 @@ HclBlock _buildEventarcTriggerBlock(
 
   return triggerBlock;
 }
+
+HclBlock _buildMatchingCriteria(String attribute, String value) =>
+    HclBlock(type: 'matching_criteria')
+      ..attribute('attribute', HclValue.string(attribute))
+      ..attribute('value', HclValue.string(value));
 
 String _toSnakeCase(String input) => input
     .replaceAllMapped(
