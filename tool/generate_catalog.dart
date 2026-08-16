@@ -1,6 +1,7 @@
 // Copyright 2026 Google LLC
 
 import 'dart:io';
+import 'package:yaml/yaml.dart';
 
 final class ServiceFamily {
   final String enumPrefix;
@@ -12,6 +13,7 @@ final class ServiceFamily {
   final bool isGlobal;
   final String? triggerLocation;
   final String? contentType;
+  final List<String> triggers;
 
   const ServiceFamily({
     required this.enumPrefix,
@@ -23,151 +25,121 @@ final class ServiceFamily {
     this.isGlobal = false,
     this.triggerLocation,
     this.contentType,
+    required this.triggers,
   });
-}
 
-const families = {
-  'google.cloud.pubsub': ServiceFamily(
-    enumPrefix: 'pubsubTopic',
-    protoClass: 'MessagePublishedData',
-    eventsImport: 'google/events/cloud/pubsub/v1/data.pb.dart',
-    dttImport:
-        'package:google_cloud_events/google/events/'
-        'cloud/pubsub/v1/data.pb.dart',
-    basePath: '/events/pubsub',
-    baselineAction: 'messagePublished',
-  ),
-  'google.cloud.storage': ServiceFamily(
-    enumPrefix: 'gcsObject',
-    protoClass: 'StorageObjectData',
-    eventsImport: 'google/events/cloud/storage/v1/data.pb.dart',
-    dttImport:
-        'package:google_cloud_events/google/events/'
-        'cloud/storage/v1/data.pb.dart',
-    basePath: '/events/uploads',
-    baselineAction: 'finalized',
-  ),
-  'google.cloud.firestore': ServiceFamily(
-    enumPrefix: 'firestoreDocument',
-    protoClass: 'Struct',
-    eventsImport:
-        'package:protobuf/well_known_types/google/protobuf/'
-        'struct.pb.dart',
-    dttImport:
-        'package:protobuf/well_known_types/google/protobuf/'
-        'struct.pb.dart',
-    basePath: '/events/firestore',
-    baselineAction: 'written',
-    triggerLocation: 'nam5',
-    contentType: 'application/protobuf',
-  ),
-  'google.firebase.auth': ServiceFamily(
-    enumPrefix: 'firebaseAuthUser',
-    protoClass: 'AuthEventData',
-    eventsImport: 'google/events/firebase/auth/v1/data.pb.dart',
-    dttImport:
-        'package:google_cloud_events/google/events/'
-        'firebase/auth/v1/data.pb.dart',
-    basePath: '/events/auth',
-    baselineAction: 'created',
-    isGlobal: true,
-    triggerLocation: 'global',
-  ),
-  'google.firebase.firebasealerts': ServiceFamily(
-    enumPrefix: 'firebaseAlerts',
-    protoClass: 'AlertData',
-    eventsImport: 'google/events/firebase/firebasealerts/v1/data.pb.dart',
-    dttImport:
-        'package:google_cloud_events/google/events/'
-        'firebase/firebasealerts/v1/data.pb.dart',
-    basePath: '/events/alerts',
-    baselineAction: 'published',
-    isGlobal: true,
-    triggerLocation: 'global',
-  ),
-  'google.firebase.remoteconfig': ServiceFamily(
-    enumPrefix: 'firebaseRemoteConfig',
-    protoClass: 'RemoteConfigEventData',
-    eventsImport: 'google/events/firebase/remoteconfig/v1/data.pb.dart',
-    dttImport:
-        'package:google_cloud_events/google/events/'
-        'firebase/remoteconfig/v1/data.pb.dart',
-    basePath: '/events/remoteconfig',
-    baselineAction: 'updated',
-    isGlobal: true,
-    triggerLocation: 'global',
-  ),
-};
+  factory ServiceFamily.fromYaml(String key, YamlMap map) {
+    final triggersNode = map['triggers'] as YamlList?;
+    if (triggersNode == null || triggersNode.isEmpty) {
+      throw FormatException('Service [$key] missing required [triggers] list.');
+    }
+    final triggers = triggersNode.map((t) => t.toString().trim()).toList();
+
+    return ServiceFamily(
+      enumPrefix:
+          map['enum_prefix'] as String? ??
+          (throw FormatException('Service [$key] missing [enum_prefix].')),
+      protoClass:
+          map['proto_class'] as String? ??
+          (throw FormatException('Service [$key] missing [proto_class].')),
+      eventsImport:
+          map['events_import'] as String? ??
+          (throw FormatException('Service [$key] missing [events_import].')),
+      dttImport:
+          map['dtt_import'] as String? ??
+          (throw FormatException('Service [$key] missing [dtt_import].')),
+      basePath:
+          map['base_path'] as String? ??
+          (throw FormatException('Service [$key] missing [base_path].')),
+      baselineAction:
+          map['baseline_action'] as String? ??
+          (throw FormatException('Service [$key] missing [baseline_action].')),
+      isGlobal: map['is_global'] as bool? ?? false,
+      triggerLocation: map['trigger_location'] as String?,
+      contentType: map['content_type'] as String?,
+      triggers: triggers,
+    );
+  }
+}
 
 String _capitalize(String s) =>
     s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
 
 Future<void> main() async {
-  final inputFile = File('catalog/supported_triggers.txt');
-  if (!inputFile.existsSync()) {
-    stderr.writeln('Missing catalog/supported_triggers.txt');
+  final catalogFile = File('catalog/catalog.yaml');
+  if (!catalogFile.existsSync()) {
+    stderr.writeln('Missing catalog/catalog.yaml');
     exitCode = 1;
     return;
   }
 
-  final lines =
-      inputFile
-          .readAsLinesSync()
-          .map((l) => l.trim())
-          .where((l) => l.isNotEmpty && !l.startsWith('#'))
-          .toList()
-        ..sort();
+  final doc = loadYaml(catalogFile.readAsStringSync()) as YamlMap;
+  final pinnedSha = doc['pinned_sha'] as String?;
+  final servicesMap = doc['services'] as YamlMap?;
+
+  if (pinnedSha == null || servicesMap == null) {
+    throw const FormatException('Invalid catalog/catalog.yaml');
+  }
+
+  final families = <String, ServiceFamily>{};
+  final allTriggers = <({String trigger, ServiceFamily family})>[];
+
+  for (final entry in servicesMap.entries) {
+    final key = entry.key.toString();
+    final value = entry.value as YamlMap;
+    final family = ServiceFamily.fromYaml(key, value);
+    families[key] = family;
+
+    for (final trigger in family.triggers) {
+      if (!trigger.startsWith(key)) {
+        throw FormatException(
+          'Trigger [$trigger] does not match service prefix [$key].',
+        );
+      }
+      allTriggers.add((trigger: trigger, family: family));
+    }
+  }
+
+  allTriggers.sort((a, b) => a.trigger.compareTo(b.trigger));
 
   final eventsEntries = <String>[];
   final dttEntries = <String>[];
   final readmeRows = <String>[];
 
-  for (final line in lines) {
-    ServiceFamily? fam;
-    String? serviceKey;
-    for (final key in families.keys) {
-      if (line.startsWith(key)) {
-        fam = families[key];
-        serviceKey = key;
-        break;
-      }
-    }
-    if (fam == null || serviceKey == null) {
-      throw FormatException('Unregistered service prefix in line: $line');
-    }
-
-    final parts = line.split('.');
+  for (final (:trigger, :family) in allTriggers) {
+    final parts = trigger.split('.');
     final action = parts.last;
-    final camelName = fam.enumPrefix + _capitalize(action);
-    final pathSuffix = action == fam.baselineAction
+    final camelName = family.enumPrefix + _capitalize(action);
+    final pathSuffix = action == family.baselineAction
         ? ''
         : '/${action == 'metadataUpdated' ? 'metadata' : action}';
-    final routePath = fam.basePath + pathSuffix;
+    final routePath = family.basePath + pathSuffix;
 
-    readmeRows.add('| `$line` | `${fam.protoClass}` | `$routePath` |');
+    readmeRows.add('| `$trigger` | `${family.protoClass}` | `$routePath` |');
 
     eventsEntries.add('''
-  /// Triggered on event: $line
-  $camelName<${fam.protoClass}>(
-    eventType: '$line',
+  /// Triggered on event: $trigger
+  $camelName<${family.protoClass}>(
+    eventType: '$trigger',
     defaultPath: '$routePath',
-    create: ${fam.protoClass}.create,
+    create: ${family.protoClass}.create,
   )''');
 
     final metaArgs = <String>[
-      "importPath: '${fam.dttImport}'",
-      "className: '${fam.protoClass}'",
+      "importPath: '${family.dttImport}'",
+      "className: '${family.protoClass}'",
       "enumName: 'CloudEventTrigger.$camelName'",
       "defaultPath: '$routePath'",
-      if (fam.isGlobal) 'isGlobal: true',
-      if (fam.triggerLocation != null)
-        "triggerLocation: '${fam.triggerLocation}'",
-      if (fam.contentType != null) "eventDataContentType: '${fam.contentType}'",
+      if (family.isGlobal) 'isGlobal: true',
+      if (family.triggerLocation != null)
+        "triggerLocation: '${family.triggerLocation}'",
+      if (family.contentType != null)
+        "eventDataContentType: '${family.contentType}'",
     ];
 
     dttEntries.add('''
   $camelName(
-    identifier: '$line',
+    identifier: '$trigger',
     meta: TriggerTypeMeta._(
 ${metaArgs.map((a) => '      $a,').join('\n')}
     ),

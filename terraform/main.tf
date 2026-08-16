@@ -63,11 +63,16 @@ resource "google_project_iam_member" "eventarc_receiver" {
 data "google_storage_project_service_account" "gcs_account" {
 }
 
-# Grant Cloud Storage Service Agent permissions to publish to transport topics
-resource "google_project_iam_member" "storage_pubsub_publisher" {
-  project = var.project_id
-  role    = "roles/pubsub.publisher"
-  member  = "serviceAccount:${data.google_storage_project_service_account.gcs_account.email_address}"
+# Target Pub/Sub transport topic for Storage Eventarc signals
+resource "google_pubsub_topic" "storage_topic" {
+  name = "gcs-triggers-storage-topic"
+}
+
+# Grant Cloud Storage Service Agent permissions on specific Pub/Sub topic (Least Privilege)
+resource "google_pubsub_topic_iam_member" "storage_pubsub_publisher" {
+  topic  = google_pubsub_topic.storage_topic.name
+  role   = "roles/pubsub.publisher"
+  member = "serviceAccount:${data.google_storage_project_service_account.gcs_account.email_address}"
 }
 
 # Grant Pub/Sub Service Agent permissions to generate OIDC tokens under our Custom SA

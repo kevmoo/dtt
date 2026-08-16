@@ -47,8 +47,8 @@ dart_terraform_triggers/
 
 ### Updating Event Catalog & Schemas
 When adding new Eventarc triggers or updating upstream Protobuf definitions, run the maintainer scripts from the monorepo root:
-1. **Sync Protos (Stage 1):** `dart run tool/sync_protos.dart` (reads `catalog/protobuf_source.yaml`).
-2. **Generate Catalog (Stage 2):** `dart run tool/generate_catalog.dart` (reads `catalog/supported_triggers.txt`).
+1. **Sync Protos (Stage 1):** `dart run tool/sync_protos.dart` (reads `catalog/catalog.yaml`).
+2. **Generate Catalog (Stage 2):** `dart run tool/generate_catalog.dart` (reads `catalog/catalog.yaml`).
 
 ### Verification
 * Run `dart format .` and `dart analyze .` before finalizing changes.
