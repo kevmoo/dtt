@@ -19,6 +19,7 @@ import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
 import '../hcl/hcl_writer.dart';
+import '../util/dart_sdk.dart';
 import 'trigger_config.dart';
 
 /// Orchestrates code-generation, outputting server entrypoints, distroless AOT
@@ -207,7 +208,7 @@ class _DttGenerator {
     await serverFile.writeAsString(buffer.toString());
 
     // 3. Run the official SDK Dart Formatter on the generated file!
-    await Process.run('dart', ['format', serverFile.path]);
+    await Process.run(resolveDartExecutable(), ['format', serverFile.path]);
   }
 
   Future<void> _generateTerraform(

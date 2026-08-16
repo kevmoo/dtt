@@ -3,6 +3,26 @@ part of 'trigger_config.dart';
 
 /// Supported Eventarc trigger event types and their associated schema metadata.
 enum TriggerType {
+  auditLogWritten(
+    identifier: 'google.cloud.audit.log.v1.written',
+    meta: TriggerTypeMeta._(
+      importPath:
+          'package:google_cloud_events/google/events/cloud/audit/v1/data.pb.dart',
+      className: 'LogEntryData',
+      enumName: 'CloudEventTrigger.auditLogWritten',
+      defaultPath: '/events/audit',
+    ),
+  ),
+  cloudBuildStatusChanged(
+    identifier: 'google.cloud.cloudbuild.build.v1.statusChanged',
+    meta: TriggerTypeMeta._(
+      importPath:
+          'package:google_cloud_events/google/events/cloud/cloudbuild/v1/data.pb.dart',
+      className: 'BuildEventData',
+      enumName: 'CloudEventTrigger.cloudBuildStatusChanged',
+      defaultPath: '/events/builds',
+    ),
+  ),
   firestoreDocumentCreated(
     identifier: 'google.cloud.firestore.document.v1.created',
     meta: TriggerTypeMeta._(

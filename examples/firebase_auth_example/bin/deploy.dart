@@ -22,11 +22,14 @@ Future<void> main(List<String> args) async {
     binDir.createSync(recursive: true);
 
     print('📦 Running dart pub get...');
-    final pubRes = await Process.run('dart', ['pub', 'get']);
+    final pubRes = await Process.run(Platform.resolvedExecutable, [
+      'pub',
+      'get',
+    ]);
     if (pubRes.exitCode != 0) {
       stderr.write(pubRes.stderr);
       throw ProcessException(
-        'dart',
+        Platform.resolvedExecutable,
         ['pub', 'get'],
         'Failed pub get',
         pubRes.exitCode,
@@ -37,7 +40,7 @@ Future<void> main(List<String> args) async {
     final targetPath = '${binDir.path}/$exeName';
 
     print('🔨 Cross-compiling Dart server to native binary...');
-    final compileRes = await Process.run('dart', [
+    final compileRes = await Process.run(Platform.resolvedExecutable, [
       'compile',
       'exe',
       'bin/server.dart',
@@ -51,7 +54,7 @@ Future<void> main(List<String> args) async {
     if (compileRes.exitCode != 0) {
       stderr.write(compileRes.stderr);
       throw ProcessException(
-        'dart',
+        Platform.resolvedExecutable,
         ['compile', 'exe'],
         'Compilation failed',
         compileRes.exitCode,
