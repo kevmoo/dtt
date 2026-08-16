@@ -26,7 +26,7 @@ Future<void> main() async {
     throw const FormatException('Invalid catalog/catalog.yaml');
   }
 
-  final targets = <String>[];
+  final targets = <String>{};
   for (final entry in services.entries) {
     final svcMap = entry.value as YamlMap;
     final target = svcMap['proto_target'] as String?;

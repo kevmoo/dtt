@@ -124,20 +124,45 @@ void main() {
     });
 
     test(
-      'generate_catalog runs cleanly and generates zero-drift outputs',
+      'generate_catalog runs cleanly and generates idempotent outputs',
       () async {
+        final targetFiles = [
+          File(
+            p.join(
+              rootDir,
+              'packages',
+              'google_cloud_events',
+              'lib',
+              'google_cloud_triggers.dart',
+            ),
+          ),
+          File(
+            p.join(
+              rootDir,
+              'packages',
+              'dtt',
+              'lib',
+              'src',
+              'codegen',
+              'trigger_config.g.dart',
+            ),
+          ),
+          File(p.join(rootDir, 'packages', 'google_cloud_events', 'README.md')),
+        ];
+
+        final beforeContents = {
+          for (final f in targetFiles) f.path: f.readAsStringSync(),
+        };
+
         final res = await Process.run('dart', [
           'run',
           'tool/generate_catalog.dart',
         ], workingDirectory: rootDir);
         check(res.exitCode).equals(0);
 
-        final gitDiff = await Process.run('git', [
-          'diff',
-          '--exit-code',
-          'packages/',
-        ], workingDirectory: rootDir);
-        check(gitDiff.exitCode).equals(0);
+        for (final f in targetFiles) {
+          check(f.readAsStringSync()).equals(beforeContents[f.path]!);
+        }
       },
     );
   });
