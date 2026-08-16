@@ -12,17 +12,17 @@ run these scripts sequentially from the monorepo root:
 
 ```mermaid
 graph TD
-    A[catalog/protobuf_source.yaml] -->|1. sync_protos| B(google_cloud_events pb.dart models)
-    C[catalog/supported_triggers.txt] -->|2. generate_catalog| D(google_cloud_triggers.dart)
+    A[catalog/catalog.yaml] -->|1. sync_protos| B(google_cloud_events pb.dart models)
+    A -->|2. generate_catalog| D(google_cloud_triggers.dart)
     B --> D
-    C -->|2. generate_catalog| E(trigger_config.g.dart)
+    A -->|2. generate_catalog| E(trigger_config.g.dart)
 ```
 
 ### Stage 1: Pinned Upstream Protobuf Syncing *(Rare)*
 ```bash
 dart run tool/sync_protos.dart
 ```
-* **Input Manifest:** [catalog/protobuf_source.yaml](../catalog/protobuf_source.yaml)
+* **Input Manifest:** [catalog/catalog.yaml](../catalog/catalog.yaml)
 * **What it does:** Shallow-fetches exact pinned Git commit SHAs of canonical
   Google CloudEvents tarballs into temp storage. Invokes `protoc` to compile
   `.pb.dart` models into `packages/google_cloud_events/lib/google/events/`.
@@ -35,10 +35,10 @@ dart run tool/sync_protos.dart
 ```bash
 dart run tool/generate_catalog.dart
 ```
-* **Input Manifest:** [catalog/supported_triggers.txt](../catalog/supported_triggers.txt)
-* **What it does:** Reads the flat list of supported event strings (e.g.,
-  `google.cloud.storage.object.v1.finalized`) and synthesizes both the Shelf
-  runtime router enums and CLI generator part files.
+* **Input Manifest:** [catalog/catalog.yaml](../catalog/catalog.yaml)
+* **What it does:** Reads the declared service families and triggers from
+  `catalog/catalog.yaml` and synthesizes both the Shelf runtime router enums
+  and CLI generator part files.
 * **Network Footprint:** **Zero.** Runs 100% offline.
-* **When to run:** Whenever a maintainer appends a new Eventarc trigger string
-  to `supported_triggers.txt`.
+* **When to run:** Whenever a maintainer adds or modifies an Eventarc trigger in
+  `catalog/catalog.yaml`.

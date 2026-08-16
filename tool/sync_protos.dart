@@ -11,19 +11,28 @@ const _eventsLibDir = 'packages/google_cloud_events/lib';
 const _dartOutFlag = '--dart_out=$_eventsLibDir';
 
 Future<void> main() async {
-  final configFile = File('catalog/protobuf_source.yaml');
+  final configFile = File('catalog/catalog.yaml');
   if (!configFile.existsSync()) {
-    stderr.writeln('Missing catalog/protobuf_source.yaml');
+    stderr.writeln('Missing catalog/catalog.yaml');
     exitCode = 1;
     return;
   }
 
   final doc = loadYaml(configFile.readAsStringSync()) as YamlMap;
   final pinnedSha = doc['pinned_sha'] as String?;
-  final targets = doc['proto_targets'] as YamlList?;
+  final services = doc['services'] as YamlMap?;
 
-  if (pinnedSha == null || targets == null) {
-    throw const FormatException('Invalid protobuf_source.yaml');
+  if (pinnedSha == null || services == null) {
+    throw const FormatException('Invalid catalog/catalog.yaml');
+  }
+
+  final targets = <String>{};
+  for (final entry in services.entries) {
+    final svcMap = entry.value as YamlMap;
+    final target = svcMap['proto_target'] as String?;
+    if (target != null && target.isNotEmpty) {
+      targets.add(target);
+    }
   }
 
   final tempDir = Directory.systemTemp.createTempSync('proto_sync_');
