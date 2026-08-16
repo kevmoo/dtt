@@ -27,6 +27,8 @@ their associated schema metadata:
 <!-- CATALOG_TABLE_START -->
 | Eventarc Event Type | Protobuf Payload Class | Default Path |
 | :--- | :--- | :--- |
+| `google.cloud.audit.log.v1.written` | `LogEntryData` | `/events/audit` |
+| `google.cloud.cloudbuild.build.v1.statusChanged` | `BuildEventData` | `/events/builds` |
 | `google.cloud.firestore.document.v1.created` | `Struct` | `/events/firestore/created` |
 | `google.cloud.firestore.document.v1.deleted` | `Struct` | `/events/firestore/deleted` |
 | `google.cloud.firestore.document.v1.updated` | `Struct` | `/events/firestore/updated` |

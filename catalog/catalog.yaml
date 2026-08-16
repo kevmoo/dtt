@@ -3,6 +3,24 @@
 pinned_sha: 6fda292a458d2d1a534e6faaf8bd766cf9e32eb6
 
 services:
+  google.cloud.audit:
+    enum_prefix: auditLog
+    proto_target: google/events/cloud/audit/v1/data.proto
+    proto_class: LogEntryData
+    events_import: google/events/cloud/audit/v1/data.pb.dart
+    base_path: /events/audit
+    triggers:
+      - google.cloud.audit.log.v1.written
+
+  google.cloud.cloudbuild:
+    enum_prefix: cloudBuild
+    proto_target: google/events/cloud/cloudbuild/v1/data.proto
+    proto_class: BuildEventData
+    events_import: google/events/cloud/cloudbuild/v1/data.pb.dart
+    base_path: /events/builds
+    triggers:
+      - google.cloud.cloudbuild.build.v1.statusChanged
+
   google.cloud.firestore:
     enum_prefix: firestoreDocument
     proto_class: Struct

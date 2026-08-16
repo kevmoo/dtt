@@ -2,6 +2,8 @@
 import 'package:protobuf/protobuf.dart';
 import 'package:protobuf/well_known_types/google/protobuf/struct.pb.dart';
 
+import 'google/events/cloud/audit/v1/data.pb.dart';
+import 'google/events/cloud/cloudbuild/v1/data.pb.dart';
 import 'google/events/cloud/pubsub/v1/data.pb.dart';
 import 'google/events/cloud/storage/v1/data.pb.dart';
 import 'google/events/firebase/auth/v1/data.pb.dart';
@@ -12,6 +14,20 @@ import 'google/events/firebase/remoteconfig/v1/data.pb.dart';
 /// triggers.
 /// Conforms to official Eventarc and CloudEvents specifications.
 enum CloudEventTrigger<T extends GeneratedMessage> {
+  /// Triggered on event: google.cloud.audit.log.v1.written
+  auditLogWritten<LogEntryData>(
+    eventType: 'google.cloud.audit.log.v1.written',
+    defaultPath: '/events/audit',
+    create: LogEntryData.create,
+  ),
+
+  /// Triggered on event: google.cloud.cloudbuild.build.v1.statusChanged
+  cloudBuildStatusChanged<BuildEventData>(
+    eventType: 'google.cloud.cloudbuild.build.v1.statusChanged',
+    defaultPath: '/events/builds',
+    create: BuildEventData.create,
+  ),
+
   /// Triggered on event: google.cloud.firestore.document.v1.created
   firestoreDocumentCreated<Struct>(
     eventType: 'google.cloud.firestore.document.v1.created',
