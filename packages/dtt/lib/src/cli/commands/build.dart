@@ -19,6 +19,8 @@ import 'package:args/command_runner.dart';
 import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
+import '../../util/dart_sdk.dart';
+
 class BuildCommand extends Command<void> {
   @override
   final String name = 'build';
@@ -89,7 +91,7 @@ class BuildCommand extends Command<void> {
 
       final targetExe = p.join(binDir.path, 'server');
       print('📦 Attempting local Dart AOT compilation...');
-      final compileRes = await Process.run('dart', [
+      final compileRes = await Process.run(resolveDartExecutable(), [
         'compile',
         'exe',
         serverFile.path,

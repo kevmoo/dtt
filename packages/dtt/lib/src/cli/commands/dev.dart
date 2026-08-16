@@ -20,6 +20,7 @@ import 'package:dtt_runtime/dtt_runtime.dart';
 import 'package:path/path.dart' as p;
 
 import '../../codegen/generator.dart';
+import '../../util/dart_sdk.dart';
 
 /// Command [dtt dev] for local server booting and local event simulation test harness.
 class DevCommand extends Command<void> {
@@ -112,7 +113,7 @@ class DevCommand extends Command<void> {
     print('🚀 Starting local development server on http://localhost:$port...');
     final serverFile = File(p.join(packageDir, 'bin', 'server.dart'));
     final process = await Process.start(
-      'dart',
+      resolveDartExecutable(),
       ['run', serverFile.path],
       environment: {'PORT': '$port'},
       mode: ProcessStartMode.inheritStdio,
