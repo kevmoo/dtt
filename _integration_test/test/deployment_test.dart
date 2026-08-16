@@ -59,7 +59,7 @@ void main() {
         // 2. Run dtt generate
         print('1. Running dtt generate...');
         final genRes = await Process.run(
-          'dart',
+          Platform.resolvedExecutable,
           [
             'run',
             'packages/dtt/bin/dtt.dart',
@@ -83,7 +83,7 @@ void main() {
         // 3. Run dtt build
         print('2. Running dtt build...');
         final buildRes = await Process.run(
-          'dart',
+          Platform.resolvedExecutable,
           [
             'run',
             'packages/dtt/bin/dtt.dart',
@@ -106,7 +106,7 @@ void main() {
         // 4. Run dtt deploy
         print('3. Running dtt deploy...');
         final deployRes = await Process.run(
-          'dart',
+          Platform.resolvedExecutable,
           [
             'run',
             'packages/dtt/bin/dtt.dart',

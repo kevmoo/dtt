@@ -17,7 +17,8 @@ Future<String> _ensureProtoc(Directory tempDir) async {
   }
 
   print(
-    '⚡ Local protoc binary not found on PATH. Downloading hermetic protoc binary...',
+    '⚡ Local protoc binary not found on PATH. '
+    'Downloading hermetic protoc binary...',
   );
   final isMac = Platform.isMacOS;
   final isArm =
@@ -198,7 +199,10 @@ Future<void> main() async {
     }
 
     print('📦 Formatting generated Protobuf models...');
-    await Process.run('dart', ['format', '$_eventsLibDir/google']);
+    await Process.run(Platform.resolvedExecutable, [
+      'format',
+      '$_eventsLibDir/google',
+    ]);
     print('✅ Protobuf models synced hermetically!');
   } finally {
     if (tempDir.existsSync()) {

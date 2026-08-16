@@ -66,43 +66,48 @@ void main() {
       },
     );
 
-    test('physical models and proto classes exist on disk for all services', () {
-      final services = doc['services'] as YamlMap;
-      final eventsLibDir = p.join(
-        rootDir,
-        'packages',
-        'google_cloud_events',
-        'lib',
-      );
+    test(
+      'physical models and proto classes exist on disk for all services',
+      () {
+        final services = doc['services'] as YamlMap;
+        final eventsLibDir = p.join(
+          rootDir,
+          'packages',
+          'google_cloud_events',
+          'lib',
+        );
 
-      for (final entry in services.entries) {
-        final key = entry.key.toString();
-        final svc = entry.value as YamlMap;
-        final eventsImport = svc['events_import'] as String;
-        final protoClass = svc['proto_class'] as String;
+        for (final entry in services.entries) {
+          final key = entry.key.toString();
+          final svc = entry.value as YamlMap;
+          final eventsImport = svc['events_import'] as String;
+          final protoClass = svc['proto_class'] as String;
 
-        if (eventsImport.startsWith('package:')) {
-          // External well-known package type (e.g. package:protobuf/...)
-          check(protoClass).isNotEmpty();
-          continue;
+          if (eventsImport.startsWith('package:')) {
+            // External well-known package type (e.g. package:protobuf/...)
+            check(protoClass).isNotEmpty();
+            continue;
+          }
+
+          final targetDartFile = File(p.join(eventsLibDir, eventsImport));
+          check(
+            targetDartFile.existsSync(),
+            because:
+                'Service [$key] events_import [$eventsImport] '
+                'must exist on disk.',
+          ).isTrue();
+
+          final fileContent = targetDartFile.readAsStringSync();
+          final classPattern = RegExp('class\\s+$protoClass\\s+extends\\s+');
+          check(
+            classPattern.hasMatch(fileContent),
+            because:
+                'File [$eventsImport] must declare generated class '
+                '[$protoClass].',
+          ).isTrue();
         }
-
-        final targetDartFile = File(p.join(eventsLibDir, eventsImport));
-        check(
-          targetDartFile.existsSync(),
-          because:
-              'Service [$key] events_import [$eventsImport] must exist on disk.',
-        ).isTrue();
-
-        final fileContent = targetDartFile.readAsStringSync();
-        final classPattern = RegExp('class\\s+$protoClass\\s+extends\\s+');
-        check(
-          classPattern.hasMatch(fileContent),
-          because:
-              'File [$eventsImport] must declare generated class [$protoClass].',
-        ).isTrue();
-      }
-    });
+      },
+    );
 
     test('single-trigger services auto-derive baseline action correctly', () {
       final services = doc['services'] as YamlMap;
@@ -117,7 +122,7 @@ void main() {
           // Single-trigger services should omit baseline_action in YAML
           check(svc['baseline_action']).isNull();
         } else {
-          // Multi-trigger services should explicitly declare their baseline action
+          // Multi-trigger services must explicitly declare baseline action
           check(svc['baseline_action']).isNotNull();
         }
       }
@@ -163,7 +168,7 @@ void main() {
           for (final f in targetFiles) f.path: f.readAsStringSync(),
         };
 
-        final res = await Process.run('dart', [
+        final res = await Process.run(Platform.resolvedExecutable, [
           'run',
           'tool/generate_catalog.dart',
         ], workingDirectory: rootDir);

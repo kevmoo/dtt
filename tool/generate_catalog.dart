@@ -261,7 +261,7 @@ ${content.substring(eIdx)}''';
   }
 
   print('📦 Running dart format...');
-  await Process.run('dart', [
+  await Process.run(Platform.resolvedExecutable, [
     'format',
     barrelFile.path,
     eventsFile.path,

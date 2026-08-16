@@ -471,7 +471,7 @@ triggers:
       }
       final exampleDir = p.join(rootDir, 'examples', 'firebase_auth_example');
 
-      final res = await Process.run('dart', [
+      final res = await Process.run(Platform.resolvedExecutable, [
         'run',
         'packages/dtt/bin/dtt.dart',
         'dev',
