@@ -9,7 +9,7 @@ final class ServiceFamily {
   final String eventsImport;
   final String dttImport;
   final String basePath;
-  final String baselineAction;
+  final String? baselineAction;
   final bool isGlobal;
   final String? triggerLocation;
   final String? contentType;
@@ -21,7 +21,7 @@ final class ServiceFamily {
     required this.eventsImport,
     required this.dttImport,
     required this.basePath,
-    required this.baselineAction,
+    this.baselineAction,
     this.isGlobal = false,
     this.triggerLocation,
     this.contentType,
@@ -35,6 +35,22 @@ final class ServiceFamily {
     }
     final triggers = triggersNode.map((t) => t.toString().trim()).toList();
 
+    final eventsImport =
+        map['events_import'] as String? ??
+        (throw FormatException('Service [$key] missing [events_import].'));
+
+    final explicitDttImport = map['dtt_import'] as String?;
+    final dttImport =
+        explicitDttImport ??
+        (eventsImport.startsWith('package:')
+            ? eventsImport
+            : 'package:google_cloud_events/$eventsImport');
+
+    final explicitBaselineAction = map['baseline_action'] as String?;
+    final baselineAction =
+        explicitBaselineAction ??
+        (triggers.length == 1 ? triggers.first.split('.').last : null);
+
     return ServiceFamily(
       enumPrefix:
           map['enum_prefix'] as String? ??
@@ -42,18 +58,12 @@ final class ServiceFamily {
       protoClass:
           map['proto_class'] as String? ??
           (throw FormatException('Service [$key] missing [proto_class].')),
-      eventsImport:
-          map['events_import'] as String? ??
-          (throw FormatException('Service [$key] missing [events_import].')),
-      dttImport:
-          map['dtt_import'] as String? ??
-          (throw FormatException('Service [$key] missing [dtt_import].')),
+      eventsImport: eventsImport,
+      dttImport: dttImport,
       basePath:
           map['base_path'] as String? ??
           (throw FormatException('Service [$key] missing [base_path].')),
-      baselineAction:
-          map['baseline_action'] as String? ??
-          (throw FormatException('Service [$key] missing [baseline_action].')),
+      baselineAction: baselineAction,
       isGlobal: map['is_global'] as bool? ?? false,
       triggerLocation: map['trigger_location'] as String?,
       contentType: map['content_type'] as String?,

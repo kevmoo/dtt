@@ -7,7 +7,6 @@ services:
     enum_prefix: firestoreDocument
     proto_class: Struct
     events_import: package:protobuf/well_known_types/google/protobuf/struct.pb.dart
-    dtt_import: package:protobuf/well_known_types/google/protobuf/struct.pb.dart
     base_path: /events/firestore
     baseline_action: written
     trigger_location: nam5
@@ -23,9 +22,7 @@ services:
     proto_target: google/events/cloud/pubsub/v1/data.proto
     proto_class: MessagePublishedData
     events_import: google/events/cloud/pubsub/v1/data.pb.dart
-    dtt_import: package:google_cloud_events/google/events/cloud/pubsub/v1/data.pb.dart
     base_path: /events/pubsub
-    baseline_action: messagePublished
     triggers:
       - google.cloud.pubsub.topic.v1.messagePublished
 
@@ -34,7 +31,6 @@ services:
     proto_target: google/events/cloud/storage/v1/data.proto
     proto_class: StorageObjectData
     events_import: google/events/cloud/storage/v1/data.pb.dart
-    dtt_import: package:google_cloud_events/google/events/cloud/storage/v1/data.pb.dart
     base_path: /events/uploads
     baseline_action: finalized
     triggers:
@@ -48,7 +44,6 @@ services:
     proto_target: google/events/firebase/auth/v1/data.proto
     proto_class: AuthEventData
     events_import: google/events/firebase/auth/v1/data.pb.dart
-    dtt_import: package:google_cloud_events/google/events/firebase/auth/v1/data.pb.dart
     base_path: /events/auth
     baseline_action: created
     is_global: true
@@ -62,9 +57,7 @@ services:
     proto_target: google/events/firebase/firebasealerts/v1/data.proto
     proto_class: AlertData
     events_import: google/events/firebase/firebasealerts/v1/data.pb.dart
-    dtt_import: package:google_cloud_events/google/events/firebase/firebasealerts/v1/data.pb.dart
     base_path: /events/alerts
-    baseline_action: published
     is_global: true
     trigger_location: global
     triggers:
@@ -75,9 +68,7 @@ services:
     proto_target: google/events/firebase/remoteconfig/v1/data.proto
     proto_class: RemoteConfigEventData
     events_import: google/events/firebase/remoteconfig/v1/data.pb.dart
-    dtt_import: package:google_cloud_events/google/events/firebase/remoteconfig/v1/data.pb.dart
     base_path: /events/remoteconfig
-    baseline_action: updated
     is_global: true
     trigger_location: global
     triggers:
