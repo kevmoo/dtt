@@ -30,5 +30,13 @@ jobs:
           dart run tool/generate_catalog.dart
           git diff --exit-code
 
+      - name: Verify generated example manifests and Terraform
+        run: |
+          dart run packages/dtt/bin/dtt.dart generate --package-dir=examples/firebase_auth_example
+          git diff --exit-code
+
       - name: Run integration tests
         run: (cd _integration_test && dart test)
+
+      - name: Verify zero git drift
+        run: git diff --exit-code
