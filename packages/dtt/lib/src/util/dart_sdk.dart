@@ -2,12 +2,15 @@
 
 import 'dart:io';
 
+import 'package:meta/meta.dart';
 import 'package:path/path.dart' as p;
 
-/// Resolves the path to the Dart SDK's `dart` executable for subprocess spawning.
+/// Resolves the path to the Dart SDK's `dart` executable for subprocess
+/// spawning.
 ///
-/// In JIT VM mode (e.g. during `dart run` or `dart test`), [Platform.resolvedExecutable]
-/// points directly to the running `dart` VM binary.
+/// In JIT VM mode (e.g. during `dart run` or `dart test`),
+/// [Platform.resolvedExecutable] points directly to the running `dart` VM
+/// binary.
 ///
 /// In AOT-compiled mode (e.g. when `dtt` is compiled via `dart compile exe` or
 /// installed via `dart install`), [Platform.resolvedExecutable] points to the
@@ -16,21 +19,20 @@ import 'package:path/path.dart' as p;
 /// 2. `FLUTTER_ROOT` cache (`$FLUTTER_ROOT/bin/cache/dart-sdk/bin/dart`).
 /// 3. The system `PATH` for `dart` or `dart.exe`.
 ///
+/// The optional parameters exist strictly for unit testing.
+///
 /// TODO(https://github.com/dart-lang/tools/issues/2504): Remove this helper once
-/// `package:cli_util` publishes canonical AOT-resilient SDK discovery (`dartExecutable`).
+/// `package:cli_util` publishes canonical AOT-resilient SDK discovery.
 String resolveDartExecutable({
-  Uri? script,
-  String? resolvedExecutable,
-  String? version,
-  Map<String, String>? environment,
+  @visibleForTesting Uri? script,
+  @visibleForTesting String? resolvedExecutable,
+  @visibleForTesting Map<String, String>? environment,
 }) {
   script ??= Platform.script;
   resolvedExecutable ??= Platform.resolvedExecutable;
-  version ??= Platform.version;
   environment ??= Platform.environment;
 
   final isCompiledExe =
-      version.contains('(exe)') ||
       (script.isScheme('file') && script.toFilePath() == resolvedExecutable) ||
       p.basenameWithoutExtension(resolvedExecutable).toLowerCase() != 'dart';
 
