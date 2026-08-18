@@ -11,14 +11,13 @@ void main() {
   group('resolveDartExecutable', () {
     test('returns Platform.resolvedExecutable in JIT mode', () {
       final exe = resolveDartExecutable(
-        version: '3.6.0 (stable) (Wed Dec 11 12:00:00 2024)',
         resolvedExecutable: '/usr/lib/dart/bin/dart',
         script: Uri.parse('file:///path/to/script.dart'),
       );
       check(exe).equals('/usr/lib/dart/bin/dart');
     });
 
-    test('probes DART_SDK in simulated AOT mode', () {
+    test('probes DART_SDK when executable is not named dart (AOT mode)', () {
       final tempDir = Directory.systemTemp.createTempSync('dart_sdk_test_');
       try {
         final binDir = Directory(p.join(tempDir.path, 'bin'))
@@ -28,9 +27,8 @@ void main() {
           ..writeAsStringSync('');
 
         final exe = resolveDartExecutable(
-          version: '3.6.0 (exe)',
           resolvedExecutable: '/usr/local/bin/dtt',
-          script: Uri.parse('file:///usr/local/bin/dtt'),
+          script: Uri.parse('file:///path/to/script.dart'),
           environment: {'DART_SDK': tempDir.path},
         );
         check(exe).equals(mockDart.path);
@@ -39,29 +37,33 @@ void main() {
       }
     });
 
-    test('probes FLUTTER_ROOT cache in simulated AOT mode', () {
-      final tempDir = Directory.systemTemp.createTempSync('flutter_sdk_test_');
-      try {
-        final binDir = Directory(
-          p.join(tempDir.path, 'bin', 'cache', 'dart-sdk', 'bin'),
-        )..createSync(recursive: true);
-        final exeName = Platform.isWindows ? 'dart.exe' : 'dart';
-        final mockDart = File(p.join(binDir.path, exeName))
-          ..writeAsStringSync('');
-
-        final exe = resolveDartExecutable(
-          version: '3.6.0 (exe)',
-          resolvedExecutable: '/usr/local/bin/dtt',
-          script: Uri.parse('file:///usr/local/bin/dtt'),
-          environment: {'FLUTTER_ROOT': tempDir.path},
+    test(
+      'probes FLUTTER_ROOT when script equals resolvedExecutable (AOT mode)',
+      () {
+        final tempDir = Directory.systemTemp.createTempSync(
+          'flutter_sdk_test_',
         );
-        check(exe).equals(mockDart.path);
-      } finally {
-        tempDir.deleteSync(recursive: true);
-      }
-    });
+        try {
+          final binDir = Directory(
+            p.join(tempDir.path, 'bin', 'cache', 'dart-sdk', 'bin'),
+          )..createSync(recursive: true);
+          final exeName = Platform.isWindows ? 'dart.exe' : 'dart';
+          final mockDart = File(p.join(binDir.path, exeName))
+            ..writeAsStringSync('');
 
-    test('probes PATH traversal in simulated AOT mode', () {
+          final exe = resolveDartExecutable(
+            resolvedExecutable: '/usr/local/bin/dtt',
+            script: Uri.parse('file:///usr/local/bin/dtt'),
+            environment: {'FLUTTER_ROOT': tempDir.path},
+          );
+          check(exe).equals(mockDart.path);
+        } finally {
+          tempDir.deleteSync(recursive: true);
+        }
+      },
+    );
+
+    test('probes PATH traversal in AOT mode', () {
       final tempDir = Directory.systemTemp.createTempSync('path_sdk_test_');
       try {
         final exeName = Platform.isWindows ? 'dart.exe' : 'dart';
@@ -69,7 +71,6 @@ void main() {
           ..writeAsStringSync('');
 
         final exe = resolveDartExecutable(
-          version: '3.6.0 (exe)',
           resolvedExecutable: '/usr/local/bin/dtt',
           script: Uri.parse('file:///usr/local/bin/dtt'),
           environment: {'PATH': tempDir.path},
@@ -80,14 +81,16 @@ void main() {
       }
     });
 
-    test('falls back to bare executable name if no candidates exist', () {
-      final exe = resolveDartExecutable(
-        version: '3.6.0 (exe)',
-        resolvedExecutable: '/usr/local/bin/dtt',
-        script: Uri.parse('file:///usr/local/bin/dtt'),
-        environment: {'PATH': '', 'DART_SDK': '', 'FLUTTER_ROOT': ''},
-      );
-      check(exe).equals(Platform.isWindows ? 'dart.exe' : 'dart');
-    });
+    test(
+      'falls back to bare executable name if no candidates exist in AOT mode',
+      () {
+        final exe = resolveDartExecutable(
+          resolvedExecutable: '/usr/local/bin/dtt',
+          script: Uri.parse('file:///usr/local/bin/dtt'),
+          environment: {'PATH': '', 'DART_SDK': '', 'FLUTTER_ROOT': ''},
+        );
+        check(exe).equals(Platform.isWindows ? 'dart.exe' : 'dart');
+      },
+    );
   });
 }
