@@ -17,7 +17,10 @@ import 'dart:io';
 
 import 'package:args/command_runner.dart';
 import 'package:path/path.dart' as p;
-import 'package:yaml/yaml.dart';
+
+import '../../codegen/trigger_config.dart';
+import '../../util/gcp.dart';
+import '../../util/workspace.dart';
 
 import 'build.dart';
 
@@ -57,25 +60,9 @@ class DeployCommand extends Command<void> {
     final packageDirParam = argResults?['package-dir'] as String? ?? '.';
     final packageDir = p.canonicalize(packageDirParam);
 
-    final configFile = File(p.join(packageDir, 'dtt.yaml'));
-    if (!await configFile.exists()) {
-      throw FileSystemException(
-        'Declarative config dtt.yaml not found inside package folder.',
-        configFile.path,
-      );
-    }
-
-    final content = await configFile.readAsString();
-    final doc = loadYaml(content) as YamlMap;
-    final serviceNode = doc['service'] as YamlMap?;
-    if (serviceNode == null) {
-      throw const FormatException(
-        'Config dtt.yaml missing mandatory [service] mapping block.',
-      );
-    }
-
-    final projectId = serviceNode['project_id'] as String? ?? 'gcp-project-id';
-    final region = serviceNode['region'] as String? ?? 'us-central1';
+    final config = await DttConfig.load(packageDir);
+    final projectId = config.projectId;
+    final region = config.region;
 
     String? containerImage = argResults?['image'] as String?;
 
@@ -107,7 +94,7 @@ class DeployCommand extends Command<void> {
     print('🚀 Deploying infrastructure using container image: $containerImage');
 
     final workspaceRoot =
-        _findWorkspaceRoot(packageDir) ?? p.dirname(packageDir);
+        findWorkspaceRoot(packageDir) ?? p.dirname(packageDir);
     var tfDir = Directory(p.join(workspaceRoot, 'terraform'));
     if (!await tfDir.exists()) {
       tfDir = Directory(p.join(packageDir, 'terraform'));
@@ -120,17 +107,10 @@ class DeployCommand extends Command<void> {
     }
 
     final env = Map<String, String>.from(Platform.environment);
-    final adcTokenRes = await Process.run('gcloud', [
-      'auth',
-      'application-default',
-      'print-access-token',
-    ]);
-    if (adcTokenRes.exitCode == 0) {
-      final token = (adcTokenRes.stdout as String).trim();
-      if (token.isNotEmpty) {
-        env['CLOUDSDK_AUTH_ACCESS_TOKEN'] = token;
-        env['GOOGLE_OAUTH_ACCESS_TOKEN'] = token;
-      }
+    final token = await resolveGcloudAuthToken();
+    if (token != null) {
+      env['CLOUDSDK_AUTH_ACCESS_TOKEN'] = token;
+      env['GOOGLE_OAUTH_ACCESS_TOKEN'] = token;
     }
 
     print('⚙️ Initializing Terraform in ${tfDir.path}...');
@@ -177,24 +157,5 @@ class DeployCommand extends Command<void> {
 
     print(applyRes.stdout);
     print('✅ Declarative Terraform deployment complete!');
-  }
-
-  String? _findWorkspaceRoot(String startDir) {
-    var dir = Directory(startDir);
-    while (true) {
-      final pubspec = File(p.join(dir.path, 'pubspec.yaml'));
-      if (pubspec.existsSync()) {
-        final content = pubspec.readAsStringSync();
-        if (content.contains('workspace:')) {
-          return dir.path;
-        }
-      }
-      final parent = dir.parent;
-      if (parent.path == dir.path) {
-        break;
-      }
-      dir = parent;
-    }
-    return null;
   }
 }

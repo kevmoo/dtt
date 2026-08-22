@@ -17,9 +17,10 @@ import 'dart:io';
 
 import 'package:args/command_runner.dart';
 import 'package:path/path.dart' as p;
-import 'package:yaml/yaml.dart';
 
+import '../../codegen/trigger_config.dart';
 import '../../util/dart_sdk.dart';
+import '../../util/gcp.dart';
 
 class BuildCommand extends Command<void> {
   @override
@@ -49,26 +50,10 @@ class BuildCommand extends Command<void> {
     final packageDirParam = argResults?['package-dir'] as String? ?? '.';
     final packageDir = p.canonicalize(packageDirParam);
 
-    final configFile = File(p.join(packageDir, 'dtt.yaml'));
-    if (!await configFile.exists()) {
-      throw FileSystemException(
-        'Declarative config dtt.yaml not found inside package folder.',
-        configFile.path,
-      );
-    }
-
-    final content = await configFile.readAsString();
-    final doc = loadYaml(content) as YamlMap;
-    final serviceNode = doc['service'] as YamlMap?;
-    if (serviceNode == null) {
-      throw const FormatException(
-        'Config dtt.yaml missing mandatory [service] mapping block.',
-      );
-    }
-
-    final serviceName = serviceNode['name'] as String? ?? 'dtt-service';
-    final projectId = serviceNode['project_id'] as String? ?? 'gcp-project-id';
-    final region = serviceNode['region'] as String? ?? 'us-central1';
+    final config = await DttConfig.load(packageDir);
+    final serviceName = config.serviceName;
+    final projectId = config.projectId;
+    final region = config.region;
 
     final tag =
         argResults?['tag'] as String? ??
@@ -147,16 +132,9 @@ CMD ["/app/server"]
       // 3. Ensure Artifact Registry repo exists
       final repoName = 'dtt-repository';
       final env = Map<String, String>.from(Platform.environment);
-      final adcTokenRes = await Process.run('gcloud', [
-        'auth',
-        'application-default',
-        'print-access-token',
-      ]);
-      if (adcTokenRes.exitCode == 0) {
-        final token = (adcTokenRes.stdout as String).trim();
-        if (token.isNotEmpty) {
-          env['CLOUDSDK_AUTH_ACCESS_TOKEN'] = token;
-        }
+      final token = await resolveGcloudAuthToken();
+      if (token != null) {
+        env['CLOUDSDK_AUTH_ACCESS_TOKEN'] = token;
       }
 
       print('🔎 Checking Google Artifact Registry repository $repoName...');
