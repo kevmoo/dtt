@@ -12,12 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import 'dart:io';
-
 import 'package:args/command_runner.dart';
 import 'package:path/path.dart' as p;
 
 import '../../codegen/generator.dart';
+import '../../util/workspace.dart';
 
 class GenerateCommand extends Command<void> {
   @override
@@ -51,7 +50,7 @@ class GenerateCommand extends Command<void> {
     final packageDirParam = argResults?['package-dir'] as String? ?? '.';
     final packageDir = p.canonicalize(packageDirParam);
     final workspaceRoot =
-        _findWorkspaceRoot(packageDir) ?? p.dirname(packageDir);
+        findWorkspaceRoot(packageDir) ?? p.dirname(packageDir);
 
     print(
       'Generating serverless triggers manifests inside workspace: '
@@ -60,24 +59,5 @@ class GenerateCommand extends Command<void> {
 
     await generateProject(workspaceRoot: workspaceRoot, packageDir: packageDir);
     print('Code and Terraform manifests generated successfully!');
-  }
-
-  String? _findWorkspaceRoot(String startDir) {
-    var dir = Directory(startDir);
-    while (true) {
-      final pubspec = File(p.join(dir.path, 'pubspec.yaml'));
-      if (pubspec.existsSync()) {
-        final content = pubspec.readAsStringSync();
-        if (content.contains('workspace:')) {
-          return dir.path;
-        }
-      }
-      final parent = dir.parent;
-      if (parent.path == dir.path) {
-        break; // Reached filesystem root
-      }
-      dir = parent;
-    }
-    return null;
   }
 }

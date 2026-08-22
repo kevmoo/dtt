@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import 'dart:io';
+
+import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
 part 'trigger_config.g.dart';
@@ -179,4 +182,48 @@ final class FirestoreTriggerConfig extends TriggerConfig {
 
   final String document;
   final String database;
+}
+
+class DttConfig {
+  final String serviceName;
+  final String projectId;
+  final String region;
+  final YamlMap doc;
+
+  DttConfig({
+    required this.serviceName,
+    required this.projectId,
+    required this.region,
+    required this.doc,
+  });
+
+  static Future<DttConfig> load(String packageDir) async {
+    final configFile = File(p.join(packageDir, 'dtt.yaml'));
+    if (!await configFile.exists()) {
+      throw FileSystemException(
+        'Declarative config dtt.yaml not found inside package folder.',
+        configFile.path,
+      );
+    }
+
+    final content = await configFile.readAsString();
+    final doc = loadYaml(content) as YamlMap;
+    final serviceNode = doc['service'] as YamlMap?;
+    if (serviceNode == null) {
+      throw const FormatException(
+        'Config dtt.yaml missing mandatory [service] mapping block.',
+      );
+    }
+
+    final serviceName = serviceNode['name'] as String? ?? 'dtt-service';
+    final projectId = serviceNode['project_id'] as String? ?? 'gcp-project-id';
+    final region = serviceNode['region'] as String? ?? 'us-central1';
+
+    return DttConfig(
+      serviceName: serviceName,
+      projectId: projectId,
+      region: region,
+      doc: doc,
+    );
+  }
 }

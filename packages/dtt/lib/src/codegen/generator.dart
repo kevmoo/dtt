@@ -40,28 +40,13 @@ class _DttGenerator {
 
   /// Runs all sub-generators, creating/updating target files in the workspace.
   Future<void> generateAll() async {
-    final configFile = File(p.join(packageDir, 'dtt.yaml'));
-    if (!await configFile.exists()) {
-      throw FileSystemException(
-        'Declarative config dtt.yaml not found inside target folder.',
-        configFile.path,
-      );
-    }
+    final config = await DttConfig.load(packageDir);
+    final serviceName = config.serviceName;
+    final projectId = config.projectId;
+    final region = config.region;
+    final doc = config.doc;
 
-    final content = await configFile.readAsString();
-    final doc = loadYaml(content) as YamlMap;
-
-    final serviceNode = doc['service'] as YamlMap?;
-    if (serviceNode == null) {
-      throw const FormatException(
-        'Config missing mandatory [service] mapping block.',
-      );
-    }
-
-    final serviceName = serviceNode['name'] as String? ?? 'dtt-service';
-    final projectId = serviceNode['project_id'] as String? ?? 'gcp-project-id';
-    final region = serviceNode['region'] as String? ?? 'us-central1';
-
+    final serviceNode = doc['service'] as YamlMap;
     final labelsNode = serviceNode['labels'] as YamlMap?;
     final labels = <String, String>{};
     if (labelsNode != null) {
