@@ -11,6 +11,7 @@ environment:
 resolution: workspace
 
 dependencies:
+  cli_util: ^0.6.0
   dtt_runtime:
     path: ../../packages/dtt_runtime
   google_cloud: ^0.5.0
