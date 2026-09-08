@@ -8,3 +8,4 @@ pubspec.lock
 *.tfstate.*
 .dtt/
 crash.log
+.deslop/

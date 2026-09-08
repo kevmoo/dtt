@@ -119,7 +119,7 @@ class DevCommand extends Command<void> {
       mode: ProcessStartMode.inheritStdio,
     );
 
-    await process.exitCode;
+    exitCode = await process.exitCode;
   }
 
   String _resolveWorkspaceRoot(String startPath) {
