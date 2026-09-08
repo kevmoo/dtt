@@ -193,7 +193,13 @@ class _DttGenerator {
     await serverFile.writeAsString(buffer.toString());
 
     // 3. Run the official SDK Dart Formatter on the generated file!
-    await Process.run(resolveDartExecutable(), ['format', serverFile.path]);
+    final formatRes = await Process.run(resolveDartExecutable(), [
+      'format',
+      serverFile.path,
+    ]);
+    if (formatRes.exitCode != 0) {
+      stderr.writeln('Warning: dart format failed:\n${formatRes.stderr}');
+    }
   }
 
   Future<void> _generateTerraform(
