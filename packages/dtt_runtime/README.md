@@ -1,8 +1,10 @@
 # Dart Terraform Triggers Runtime (`dtt_runtime`)
 
-Core runtime event parsing, Shelf serverless routing engine, and local CloudEvent simulation harness for `dtt`.
+Core runtime event parsing, Shelf serverless routing engine, and local
+CloudEvent simulation harness for `dtt`.
 
-Conforms strictly to canonical Google Cloud Platform (GCP) Eventarc and CloudEvents 1.0 HTTP Protocol Binding specifications.
+Conforms strictly to canonical Google Cloud Platform (GCP) Eventarc and
+CloudEvents 1.0 HTTP Protocol Binding specifications.
 
 ## 🚀 Usage Guide
 

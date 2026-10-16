@@ -2,25 +2,41 @@
 
 ![Dart Terraform Triggers Project Banner](assets/project_banner.png)
 
-This document provides a high-fidelity system design and architectural specification for `dart_terraform_triggers` (CLI tool codenamed `dtt`). This library and CLI orchestrate the serverless lifecycle for Dart developers deploying to Google Cloud Run, automatically configuring Google Eventarc triggers via Terraform, and compiling type-safe Event payload models.
+This document provides a high-fidelity system design and architectural
+specification for `dart_terraform_triggers` (CLI tool codenamed `dtt`). This
+library and CLI orchestrate the serverless lifecycle for Dart developers
+deploying to Google Cloud Run, automatically configuring Google Eventarc
+triggers via Terraform, and compiling type-safe Event payload models.
 
 ---
 
 ## 1. Project Vision & Core Strategy
 
-Modern event-driven development on Google Cloud Platform (GCP) requires combining multiple layers: serverless computing (Cloud Run), event-routing networks (Eventarc), resource provisioning engines (Terraform), and type-safe backend environments (Dart). Currently, Dart developers must manually orchestrate these configurations, resolve Eventarc JSON/Protobuf specifications, write Shelf webhook routers, and design infrastructure templates.
+Modern event-driven development on Google Cloud Platform (GCP) requires
+combining multiple layers: serverless computing (Cloud Run), event-routing
+networks (Eventarc), resource provisioning engines (Terraform), and type-safe
+backend environments (Dart). Currently, Dart developers must manually
+orchestrate these configurations, resolve Eventarc JSON/Protobuf specifications,
+write Shelf webhook routers, and design infrastructure templates.
 
 `dtt` bridges this gap, exposing a unified command-line and package interface:
-1. **Low-friction Setup**: Simple configuration using a root-level [dtt.yaml](../examples/firebase_auth_example/dtt.yaml) file.
-2. **Schema Discovery**: Automatic resolution and code-generation of official GCP event schemas directly from the `google-cloudevents` repository.
-3. **Type-Safe Routing**: Seamless deserialization of incoming CloudEvents into strongly-typed Dart protobuf models.
-4. **Declarative Infrastructure**: Dynamic code-generation of standard, production-grade Terraform resources, ensuring secure, repeatable deployments.
+
+1. **Low-friction Setup**: Simple configuration using a root-level
+   [dtt.yaml](../examples/firebase_auth_example/dtt.yaml) file.
+2. **Schema Discovery**: Automatic resolution and code-generation of official
+   GCP event schemas directly from the `google-cloudevents` repository.
+3. **Type-Safe Routing**: Seamless deserialization of incoming CloudEvents into
+   strongly-typed Dart protobuf models.
+4. **Declarative Infrastructure**: Dynamic code-generation of standard,
+   production-grade Terraform resources, ensuring secure, repeatable
+   deployments.
 
 ---
 
 ## 2. Target Developer Workflow
 
-The CLI maps onto the developer's typical day-to-day workflow, executing actions across three primary phases:
+The CLI maps onto the developer's typical day-to-day workflow, executing actions
+across three primary phases:
 
 ```mermaid
 flowchart LR
@@ -33,32 +49,55 @@ flowchart LR
 ```
 
 ### Phase 1: Initialization (`dtt init`)
+
 Creates the initial directory structure, setting up standard microservice files:
-- [pubspec.yaml](../pubspec.yaml) initialized with standard serverless runtime dependencies (`shelf`, `google_cloud_shelf`, `dtt_runtime`, `google_cloud_events`, `protobuf`).
-- [dtt.yaml](../examples/firebase_auth_example/dtt.yaml) template for project metadata and trigger registrations.
-- [bin/server.dart](../examples/firebase_auth_example/bin/server.dart) standard Shelf HTTP server leveraging `google_cloud_shelf` structured logging and graceful shutdown orchestration, integrated with `dtt_runtime` routing middleware.
+
+- [pubspec.yaml](../pubspec.yaml) initialized with standard serverless runtime
+  dependencies (`shelf`, `google_cloud_shelf`, `dtt_runtime`,
+  `google_cloud_events`, `protobuf`).
+- [dtt.yaml](../examples/firebase_auth_example/dtt.yaml) template for project
+  metadata and trigger registrations.
+- [bin/server.dart](../examples/firebase_auth_example/bin/server.dart) standard
+  Shelf HTTP server leveraging `google_cloud_shelf` structured logging and
+  graceful shutdown orchestration, integrated with `dtt_runtime` routing
+  middleware.
 
 ### Phase 2: Adding Triggers (`dtt trigger add`)
-An interactive or declarative command that updates [dtt.yaml](../examples/firebase_auth_example/dtt.yaml):
-1. User specifies the target GCP event provider and event type (e.g., Storage bucket uploads).
-2. The engine fetches the corresponding proto file from `github.com/googleapis/google-cloudevents`.
+
+An interactive or declarative command that updates
+[dtt.yaml](../examples/firebase_auth_example/dtt.yaml):
+
+1. User specifies the target GCP event provider and event type (e.g., Storage
+   bucket uploads).
+2. The engine fetches the corresponding proto file from
+   `github.com/googleapis/google-cloudevents`.
 3. Compiles the `.proto` using `protoc` and the Dart `protoc_plugin`.
-4. Stubs a strongly-typed handler function in [lib/src/handlers/](../examples/firebase_auth_example/lib/src/handlers) and registers it in the central router.
+4. Stubs a strongly-typed handler function in
+   [lib/src/handlers/](../examples/firebase_auth_example/lib/src/handlers) and
+   registers it in the central router.
 
 ### Phase 3: Safe Deployment (`dtt deploy`)
+
 Automates containerization and serverless infrastructure deployment:
-1. Generates Terraform configuration (`main.tf`, `variables.tf`, `outputs.tf`) containing necessary Google provider blocks.
-2. Triggers a secure Docker image build (via Google Cloud Build or a local environment).
+
+1. Generates Terraform configuration (`main.tf`, `variables.tf`, `outputs.tf`)
+   containing necessary Google provider blocks.
+2. Triggers a secure Docker image build (via Google Cloud Build or a local
+   environment).
 3. Invokes `terraform init` and `terraform apply` to provision:
    - The **Cloud Run service** running the Dart container.
    - The **Eventarc trigger** connected to the selected event source.
-   - All **IAM Service Account bindings** required for OIDC-authenticated push triggers.
+   - All **IAM Service Account bindings** required for OIDC-authenticated push
+     triggers.
 
 ---
 
 ## 3. High-Fidelity Data Flow
 
-Once deployed to production, event delivery relies on standard CloudEvents OIDC authentication. The sequence diagram below maps the runtime lifecycle of an event from an external change to its type-safe execution inside the Dart container.
+Once deployed to production, event delivery relies on standard CloudEvents OIDC
+authentication. The sequence diagram below maps the runtime lifecycle of an
+event from an external change to its type-safe execution inside the Dart
+container.
 
 ```mermaid
 sequenceDiagram
@@ -89,18 +128,29 @@ sequenceDiagram
 
 ## 4. CLI Architecture & Commands
 
-The command-line interface is driven by `package:args` and is structured using the Command design pattern. The central runner is defined in [lib/src/cli/runner.dart](../packages/dtt/lib/src/cli/runner.dart).
+The command-line interface is driven by `package:args` and is structured using
+the Command design pattern. The central runner is defined in
+[lib/src/cli/runner.dart](../packages/dtt/lib/src/cli/runner.dart).
 
 ### Directory & Command Classes Map
-- **CLI Runner**: [lib/src/cli/runner.dart](../packages/dtt/lib/src/cli/runner.dart)
-- **Init Command**: [lib/src/cli/commands/init.dart](../packages/dtt/lib/src/cli/commands/init.dart)
-- **Trigger List Command**: [lib/src/cli/commands/trigger_list.dart](../packages/dtt/lib/src/cli/commands/trigger_list.dart)
-- **Trigger Add Command**: [lib/src/cli/commands/trigger_add.dart](../packages/dtt/lib/src/cli/commands/trigger_add.dart)
-- **Generate Command**: [lib/src/cli/commands/generate.dart](../packages/dtt/lib/src/cli/commands/generate.dart)
-- **Deploy Command**: [lib/src/cli/commands/deploy.dart](../packages/dtt/lib/src/cli/commands/deploy.dart)
+
+- **CLI Runner**:
+  [lib/src/cli/runner.dart](../packages/dtt/lib/src/cli/runner.dart)
+- **Init Command**:
+  [lib/src/cli/commands/init.dart](../packages/dtt/lib/src/cli/commands/init.dart)
+- **Trigger List Command**:
+  [lib/src/cli/commands/trigger_list.dart](../packages/dtt/lib/src/cli/commands/trigger_list.dart)
+- **Trigger Add Command**:
+  [lib/src/cli/commands/trigger_add.dart](../packages/dtt/lib/src/cli/commands/trigger_add.dart)
+- **Generate Command**:
+  [lib/src/cli/commands/generate.dart](../packages/dtt/lib/src/cli/commands/generate.dart)
+- **Deploy Command**:
+  [lib/src/cli/commands/deploy.dart](../packages/dtt/lib/src/cli/commands/deploy.dart)
 
 ### Configuration Schema (`dtt.yaml`)
-A simple declarative configuration defines the local metadata and active Eventarc mapping:
+
+A simple declarative configuration defines the local metadata and active
+Eventarc mapping:
 
 ```yaml
 # dtt.yaml
@@ -122,26 +172,37 @@ triggers:
 
 ## 5. Schema Resolution & Dart Code Generation
 
-To provide type-safety, the code generator implements an automated pipeline resolving raw schema assets:
+To provide type-safety, the code generator implements an automated pipeline
+resolving raw schema assets:
 
-1. **GCP Event Database**: Contains standard catalog definitions mapping typical Eventarc event types to official Protobuf source file paths:
-   - `google.cloud.storage.object.v1.finalized` $\rightarrow$ `google/events/cloud/storage/v1/data.proto`
-   - `google.cloud.firestore.document.v1.written` $\rightarrow$ `google/events/cloud/firestore/v1/data.proto`
-   - `google.cloud.pubsub.topic.v1.messagePublished` $\rightarrow$ `google/events/cloud/pubsub/v1/data.proto`
-2. **Dynamic Downloader**: Uses `package:http` to pull selected proto files and their transitive dependencies (e.g. `google/protobuf/timestamp.proto`, `google/events/cloudevents.proto`) from `googleapis/google-cloudevents` repository.
+1. **GCP Event Database**: Contains standard catalog definitions mapping typical
+   Eventarc event types to official Protobuf source file paths:
+   - `google.cloud.storage.object.v1.finalized` $\rightarrow$
+     `google/events/cloud/storage/v1/data.proto`
+   - `google.cloud.firestore.document.v1.written` $\rightarrow$
+     `google/events/cloud/firestore/v1/data.proto`
+   - `google.cloud.pubsub.topic.v1.messagePublished` $\rightarrow$
+     `google/events/cloud/pubsub/v1/data.proto`
+2. **Dynamic Downloader**: Uses `package:http` to pull selected proto files and
+   their transitive dependencies (e.g. `google/protobuf/timestamp.proto`,
+   `google/events/cloudevents.proto`) from `googleapis/google-cloudevents`
+   repository.
 3. **Protoc Execution**: Triggers the system's protobuf compiler:
    ```bash
    protoc --dart_out=lib/src/generated \
      -I lib/src/schemas \
      lib/src/schemas/google/events/cloud/storage/v1/data.proto
    ```
-   This generates standard Dart bindings (`data.pb.dart`, `data.pbenum.dart`, etc.) including helper model descriptors equipped with binary and JSON deserialization methods.
+   This generates standard Dart bindings (`data.pb.dart`, `data.pbenum.dart`,
+   etc.) including helper model descriptors equipped with binary and JSON
+   deserialization methods.
 
 ---
 
 ## 6. Type-Safe CloudEvent Router
 
-A custom routing framework is layered on top of Dart's standard server infrastructure:
+A custom routing framework is layered on top of Dart's standard server
+infrastructure:
 
 ```dart
 // packages/dtt_runtime/lib/src/cloudevents.dart
@@ -168,7 +229,7 @@ class CloudEvent<T> {
   factory CloudEvent.parse(Request request, T Function(Object?) dataParser) {
     // 1. Resolve delivery mode (Binary vs Structured)
     final contentType = request.headers['content-type'] ?? '';
-    
+
     if (contentType.contains('application/cloudevents+json')) {
       // Structured Mode (envelope inside body)
       final bodyStr = request.readAsString(); // or async map
@@ -188,7 +249,7 @@ class CloudEvent<T> {
       final specVersion = request.headers['ce-specversion'] ?? '';
       final type = request.headers['ce-type'] ?? '';
       final ceContentType = request.headers['ce-datacontenttype'];
-      
+
       // Raw data is stored in the HTTP post body
       final rawBody = request.read(); // Stream<List<int>> or mapped
       // Parse payload using delegate
@@ -207,7 +268,8 @@ class CloudEvent<T> {
 }
 ```
 
-The CLI automatically stubs out corresponding typed handlers inside the user's project, keeping standard boilerplates isolated:
+The CLI automatically stubs out corresponding typed handlers inside the user's
+project, keeping standard boilerplates isolated:
 
 ```dart
 // lib/src/handlers/storage_upload_handler.dart
@@ -220,13 +282,13 @@ import 'package:dtt_runtime/dtt_runtime.dart';
 void onStorageUpload(CloudEvent<StorageObjectData> event, StorageClient storage) async {
   final StorageObjectData eventData = event.data;
   print('Successfully processed file: ${eventData.name}');
-  
+
   // 🌟 ZERO-BOILERPLATE TIGHT INTEGRATION:
   // Convert event payload attributes naturally into client types!
   final ObjectInfo metadata = eventData.toObjectInfo();
   print('Bucket path: gs://${metadata.bucket}/${metadata.name}');
   print('File Size: ${metadata.size} bytes');
-  
+
   // Map standard event targets directly to actionable GCS references
   final fileRef = eventData.toRef(storage);
   final fileBytes = await fileRef.read();
@@ -237,13 +299,17 @@ void onStorageUpload(CloudEvent<StorageObjectData> event, StorageClient storage)
 
 ## 7. Automated Infrastructure Generation (Terraform)
 
-Rather than writing infrastructure files manually, the generator reads [dtt.yaml](../examples/firebase_auth_example/dtt.yaml) and outputs declarative resources in `terraform/`:
+Rather than writing infrastructure files manually, the generator reads
+[dtt.yaml](../examples/firebase_auth_example/dtt.yaml) and outputs declarative
+resources in `terraform/`:
 
 - **Main Config**: [terraform/main.tf](../terraform/main.tf)
 - **Variable Defs**: [terraform/variables.tf](../terraform/variables.tf)
 - **Output Metrics**: [terraform/outputs.tf](../terraform/outputs.tf)
 
-Below is an illustration of the generated declarative resource blocks inside `terraform/main.tf` mapping our target service, secure IAM service agents, and triggers:
+Below is an illustration of the generated declarative resource blocks inside
+`terraform/main.tf` mapping our target service, secure IAM service agents, and
+triggers:
 
 ```hcl
 # terraform/main.tf
@@ -330,4 +396,6 @@ resource "google_eventarc_trigger" "gcs_trigger" {
 }
 ```
 
-This structured generation guarantees correct, standardized settings—such as closing container entry boundaries using `INGRESS_TRAFFIC_INTERNAL_ONLY` and provisioning minimum-privilege OIDC Invoker roles.
+This structured generation guarantees correct, standardized settings—such as
+closing container entry boundaries using `INGRESS_TRAFFIC_INTERNAL_ONLY` and
+provisioning minimum-privilege OIDC Invoker roles.
