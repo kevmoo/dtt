@@ -21,3 +21,6 @@ dependencies:
   google_cloud_shelf: ^0.5.0
   protobuf: ^6.0.0
   shelf: ^1.4.0
+dev_dependencies:
+  api_summary: ^1.2.0
+  test: ^1.33.0

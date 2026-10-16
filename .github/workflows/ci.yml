@@ -35,6 +35,12 @@ jobs:
           dart run packages/dtt/bin/dtt.dart generate --package-dir=examples/firebase_auth_example
           git diff --exit-code
 
+      - name: Run package unit tests
+        run: |
+          for pkg in packages/dtt packages/dtt_runtime packages/google_cloud_events; do
+            (cd "$pkg" && dart test)
+          done
+
       - name: Run integration tests
         run: (cd _integration_test && dart test)
 
