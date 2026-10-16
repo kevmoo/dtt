@@ -11,7 +11,7 @@ This document provides a high-fidelity system design and architectural specifica
 Modern event-driven development on Google Cloud Platform (GCP) requires combining multiple layers: serverless computing (Cloud Run), event-routing networks (Eventarc), resource provisioning engines (Terraform), and type-safe backend environments (Dart). Currently, Dart developers must manually orchestrate these configurations, resolve Eventarc JSON/Protobuf specifications, write Shelf webhook routers, and design infrastructure templates.
 
 `dtt` bridges this gap, exposing a unified command-line and package interface:
-1. **Low-friction Setup**: Simple configuration using a root-level [dtt.yaml](../dtt.yaml) file.
+1. **Low-friction Setup**: Simple configuration using a root-level [dtt.yaml](../examples/firebase_auth_example/dtt.yaml) file.
 2. **Schema Discovery**: Automatic resolution and code-generation of official GCP event schemas directly from the `google-cloudevents` repository.
 3. **Type-Safe Routing**: Seamless deserialization of incoming CloudEvents into strongly-typed Dart protobuf models.
 4. **Declarative Infrastructure**: Dynamic code-generation of standard, production-grade Terraform resources, ensuring secure, repeatable deployments.
@@ -35,15 +35,15 @@ flowchart LR
 ### Phase 1: Initialization (`dtt init`)
 Creates the initial directory structure, setting up standard microservice files:
 - [pubspec.yaml](../pubspec.yaml) initialized with standard serverless runtime dependencies (`shelf`, `google_cloud_shelf`, `dtt_runtime`, `google_cloud_events`, `protobuf`).
-- [dtt.yaml](../dtt.yaml) template for project metadata and trigger registrations.
-- [bin/server.dart](../bin/server.dart) standard Shelf HTTP server leveraging `google_cloud_shelf` structured logging and graceful shutdown orchestration, integrated with `dtt_runtime` routing middleware.
+- [dtt.yaml](../examples/firebase_auth_example/dtt.yaml) template for project metadata and trigger registrations.
+- [bin/server.dart](../examples/firebase_auth_example/bin/server.dart) standard Shelf HTTP server leveraging `google_cloud_shelf` structured logging and graceful shutdown orchestration, integrated with `dtt_runtime` routing middleware.
 
 ### Phase 2: Adding Triggers (`dtt trigger add`)
-An interactive or declarative command that updates [dtt.yaml](../dtt.yaml):
+An interactive or declarative command that updates [dtt.yaml](../examples/firebase_auth_example/dtt.yaml):
 1. User specifies the target GCP event provider and event type (e.g., Storage bucket uploads).
 2. The engine fetches the corresponding proto file from `github.com/googleapis/google-cloudevents`.
 3. Compiles the `.proto` using `protoc` and the Dart `protoc_plugin`.
-4. Stubs a strongly-typed handler function in [lib/src/handlers/](../lib/src/handlers) and registers it in the central router.
+4. Stubs a strongly-typed handler function in [lib/src/handlers/](../examples/firebase_auth_example/lib/src/handlers) and registers it in the central router.
 
 ### Phase 3: Safe Deployment (`dtt deploy`)
 Automates containerization and serverless infrastructure deployment:
@@ -89,15 +89,15 @@ sequenceDiagram
 
 ## 4. CLI Architecture & Commands
 
-The command-line interface is driven by `package:args` and is structured using the Command design pattern. The central runner is defined in [lib/src/cli/runner.dart](../lib/src/cli/runner.dart).
+The command-line interface is driven by `package:args` and is structured using the Command design pattern. The central runner is defined in [lib/src/cli/runner.dart](../packages/dtt/lib/src/cli/runner.dart).
 
 ### Directory & Command Classes Map
-- **CLI Runner**: [lib/src/cli/runner.dart](../lib/src/cli/runner.dart)
-- **Init Command**: [lib/src/cli/commands/init.dart](../lib/src/cli/commands/init.dart)
-- **Trigger List Command**: [lib/src/cli/commands/trigger_list.dart](../lib/src/cli/commands/trigger_list.dart)
-- **Trigger Add Command**: [lib/src/cli/commands/trigger_add.dart](../lib/src/cli/commands/trigger_add.dart)
-- **Generate Command**: [lib/src/cli/commands/generate.dart](../lib/src/cli/commands/generate.dart)
-- **Deploy Command**: [lib/src/cli/commands/deploy.dart](../lib/src/cli/commands/deploy.dart)
+- **CLI Runner**: [lib/src/cli/runner.dart](../packages/dtt/lib/src/cli/runner.dart)
+- **Init Command**: [lib/src/cli/commands/init.dart](../packages/dtt/lib/src/cli/commands/init.dart)
+- **Trigger List Command**: [lib/src/cli/commands/trigger_list.dart](../packages/dtt/lib/src/cli/commands/trigger_list.dart)
+- **Trigger Add Command**: [lib/src/cli/commands/trigger_add.dart](../packages/dtt/lib/src/cli/commands/trigger_add.dart)
+- **Generate Command**: [lib/src/cli/commands/generate.dart](../packages/dtt/lib/src/cli/commands/generate.dart)
+- **Deploy Command**: [lib/src/cli/commands/deploy.dart](../packages/dtt/lib/src/cli/commands/deploy.dart)
 
 ### Configuration Schema (`dtt.yaml`)
 A simple declarative configuration defines the local metadata and active Eventarc mapping:
@@ -237,7 +237,7 @@ void onStorageUpload(CloudEvent<StorageObjectData> event, StorageClient storage)
 
 ## 7. Automated Infrastructure Generation (Terraform)
 
-Rather than writing infrastructure files manually, the generator reads [dtt.yaml](../dtt.yaml) and outputs declarative resources in `terraform/`:
+Rather than writing infrastructure files manually, the generator reads [dtt.yaml](../examples/firebase_auth_example/dtt.yaml) and outputs declarative resources in `terraform/`:
 
 - **Main Config**: [terraform/main.tf](../terraform/main.tf)
 - **Variable Defs**: [terraform/variables.tf](../terraform/variables.tf)

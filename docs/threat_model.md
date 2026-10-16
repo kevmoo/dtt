@@ -11,7 +11,7 @@ This document maps out the comprehensive security boundaries, trust models, and 
 The system operates across two discrete execution environments with an asymmetric security posture:
 
 1. **Developer Workstation (Local CLI)**:
-   - Evaluates developer-authored [dtt.yaml](../dtt.yaml) configurations.
+   - Evaluates developer-authored [dtt.yaml](../examples/firebase_auth_example/dtt.yaml) configurations.
    - Accesses Google Cloud Service Agent directories and local Docker instances.
    - Fetches event proto definitions from external sources.
    - Executes system commands to trigger compilation and deployment.
