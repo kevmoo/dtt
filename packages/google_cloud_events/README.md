@@ -24,6 +24,7 @@ void processStorageEvent(StorageObjectData data) {
 Below is the canonical list of Eventarc triggers supported by this package and
 their associated schema metadata:
 
+<!-- prettier-ignore-start -->
 <!-- CATALOG_TABLE_START -->
 | Eventarc Event Type | Protobuf Payload Class | Default Path |
 | :--- | :--- | :--- |
@@ -43,6 +44,7 @@ their associated schema metadata:
 | `google.firebase.firebasealerts.alerts.v1.published` | `AlertData` | `/events/alerts` |
 | `google.firebase.remoteconfig.v1.updated` | `RemoteConfigEventData` | `/events/remoteconfig` |
 <!-- CATALOG_TABLE_END -->
+<!-- prettier-ignore-end -->
 
 ---
 

@@ -1,12 +1,18 @@
 # GCP Production Deployment Guide: Firebase Auth Eventarc Triggers
 
-This walkthrough outlines the complete, systems-grade deployment pipeline to build, push, and declare infrastructure resources for the [examples/firebase_auth_example](file:///Users/kevmoo/github/kevmoo/dart_terraform_triggers/examples/firebase_auth_example) microservice under your target Google Cloud Platform (GCP) project: **`n26-full-stack-dart`**.
+This walkthrough outlines the complete, systems-grade deployment pipeline to
+build, push, and declare infrastructure resources for the
+[examples/firebase_auth_example](file:///Users/kevmoo/github/kevmoo/dart_terraform_triggers/examples/firebase_auth_example)
+microservice under your target Google Cloud Platform (GCP) project:
+**`n26-full-stack-dart`**.
 
 ---
 
 ## 🌌 1. Systems Observability Architecture
 
-By pairing **`package:google_cloud_shelf`** (runtime serving) with **`package:google_cloud_logging`** (handler structured logs), we gain deep, automated, request-nested trace correlation out-of-the-box. 
+By pairing **`package:google_cloud_shelf`** (runtime serving) with
+**`package:google_cloud_logging`** (handler structured logs), we gain deep,
+automated, request-nested trace correlation out-of-the-box.
 
 ```mermaid
 sequenceDiagram
@@ -31,7 +37,9 @@ sequenceDiagram
 
 ## 📦 2. Production Monorepo Containerizer (`Dockerfile`)
 
-Because standard AOT compilation requires resolving transitive workspace member configurations (linking `dtt_runtime` and `google_cloud_events`), the Dockerfile uses a **multi-stage build context anchored at the workspace root**.
+Because standard AOT compilation requires resolving transitive workspace member
+configurations (linking `dtt_runtime` and `google_cloud_events`), the Dockerfile
+uses a **multi-stage build context anchored at the workspace root**.
 
 Create this file at your monorepo workspace root: **`Dockerfile`**
 
@@ -72,10 +80,15 @@ ENTRYPOINT ["/app/server"]
 
 ## ☁️ 3. Google Cloud Build Pipeline
 
-To build and compile your container natively on high-speed Arm64/x64 GCP hardware (with exactly 0 local Docker engines running on your workstation!), invoke Google Cloud Builds.
+To build and compile your container natively on high-speed Arm64/x64 GCP
+hardware (with exactly 0 local Docker engines running on your workstation!),
+invoke Google Cloud Builds.
 
 ### A. Initialize the Artifact Registry Repository
-Create a secure, regional Artifact Registry target repository under your project:
+
+Create a secure, regional Artifact Registry target repository under your
+project:
+
 ```bash
 gcloud artifacts repositories create cloud-run-images \
     --repository-format=docker \
@@ -85,7 +98,10 @@ gcloud artifacts repositories create cloud-run-images \
 ```
 
 ### B. Submit the Native Cloud Build Compile Task
-Execute this command at your **workspace root** to compile and push the distroless image directly inside GCP:
+
+Execute this command at your **workspace root** to compile and push the
+distroless image directly inside GCP:
+
 ```bash
 gcloud builds submit --tag \
     us-central1-docker.pkg.dev/n26-full-stack-dart/cloud-run-images/firebase-auth-triggers:latest \
@@ -96,9 +112,11 @@ gcloud builds submit --tag \
 
 ## 🛠️ 4. Declarative Infrastructure Blueprint (Terraform)
 
-Create a dedicated directory at your workspace root named **`terraform/`** and map out the complete, zero-trust infrastructure assets:
+Create a dedicated directory at your workspace root named **`terraform/`** and
+map out the complete, zero-trust infrastructure assets:
 
 ### A. Main Infrastructure Manifest: `terraform/main.tf`
+
 ```hcl
 terraform {
   required_version = ">= 1.3.0"
@@ -124,7 +142,7 @@ resource "google_cloud_run_v2_service" "auth_service" {
   template {
     containers {
       image = "us-central1-docker.pkg.dev/${var.project_id}/cloud-run-images/firebase-auth-triggers:latest"
-      
+
       ports {
         container_port = 8080
       }
@@ -184,6 +202,7 @@ resource "google_eventarc_trigger" "auth_created_trigger" {
 ```
 
 ### B. Mapped Variables: `terraform/variables.tf`
+
 ```hcl
 variable "project_id" {
   type        = string
@@ -199,6 +218,7 @@ variable "region" {
 ```
 
 ### C. System Outputs: `terraform/outputs.tf`
+
 ```hcl
 output "service_url" {
   value       = google_cloud_run_v2_service.auth_service.uri
@@ -215,17 +235,22 @@ output "eventarc_trigger_id" {
 
 ## 🚀 5. Deployment Checklist & Command Steps
 
-Once variables and blueprints are mapped, execute these sequential command sweeps on your terminal to orchestrate live production assets:
+Once variables and blueprints are mapped, execute these sequential command
+sweeps on your terminal to orchestrate live production assets:
 
 ### Step 1: GCP CLI Configuration Validation
+
 Ensure your CLI session is authorized and pinned to your project context:
+
 ```bash
 gcloud auth login
 gcloud config set project n26-full-stack-dart
 ```
 
 ### Step 2: Build the Production Container Containerizer
+
 Submit the monorepo build context straight to Google Cloud Build:
+
 ```bash
 gcloud builds submit --tag \
     us-central1-docker.pkg.dev/n26-full-stack-dart/cloud-run-images/firebase-auth-triggers:latest \
@@ -233,7 +258,9 @@ gcloud builds submit --tag \
 ```
 
 ### Step 3: Terraform Orchestration & Resource Provisioning
+
 Navigate to your `terraform/` folder and provision live systems:
+
 ```bash
 cd terraform
 terraform init
@@ -246,15 +273,19 @@ terraform apply -auto-approve
 ## 🔬 6. Live Observation Validation Check
 
 Once provisioning apply completes:
-1. Navigate to the **Firebase Console** under your app project `n26-full-stack-dart`.
-2. Create a new test user account inside **Firebase Authentication** (or invoke your client app login flow!).
+
+1. Navigate to the **Firebase Console** under your app project
+   `n26-full-stack-dart`.
+2. Create a new test user account inside **Firebase Authentication** (or invoke
+   your client app login flow!).
 3. Open the **GCP Cloud Logging Log Explorer** inside `n26-full-stack-dart`.
 4. Run the query targeting your serverless container service logs:
    ```query
    resource.type="cloud_run_revision"
    resource.labels.service_name="firebase-auth-service"
    ```
-5. You will see a beautiful, trace-correlated, **structured JSON log entry** nesting user creations metadata natively:
+5. You will see a beautiful, trace-correlated, **structured JSON log entry**
+   nesting user creations metadata natively:
    ```json
    {
      "message": "Firebase Auth user account created successfully for UID: test-uid-123",

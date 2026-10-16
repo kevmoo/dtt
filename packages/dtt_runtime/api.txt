@@ -1,0 +1,46 @@
+environment:
+  sdk: ^3.12.0
+package:dtt_runtime/dtt_runtime.dart:
+  CloudEvent (class<T extends GeneratedMessage> extends Object):
+    parse (static method: Future<CloudEvent<T>> Function<T extends GeneratedMessage>(Request, T Function()))
+    new (constructor: CloudEvent<T> Function({required T data, required String? dataContentType, required String id, required Uri source, required String specVersion, String? subject, DateTime? time, required String type}))
+    data (getter: T)
+    dataContentType (getter: String?)
+    id (getter: String)
+    source (getter: Uri)
+    specVersion (getter: String)
+    subject (getter: String?)
+    time (getter: DateTime?)
+    type (getter: String)
+  DttEventRouter (class extends Object):
+    new (constructor: DttEventRouter Function())
+    handle (method: Future<Response@1> Function(Request))
+    register (method: void Function<T extends GeneratedMessage>({required T Function() create, required String eventType, required FutureOr<void> Function(CloudEvent<T>) handler, required String path}))
+    registerTrigger (method: void Function<T extends GeneratedMessage>({required FutureOr<void> Function(CloudEvent<T>) handler, String? path, required CloudEventTrigger<T> trigger}))
+  EventSimulator (class extends Object):
+    new (constructor: EventSimulator Function({Client? client, String targetUrl}))
+    targetUrl (getter: String)
+    close (method: void Function())
+    sendBinaryEvent (method: Future<Response@2> Function({required Map<String, dynamic> data, String? eventId, required String eventType, required String path, required String source}))
+    sendStructuredEvent (method: Future<Response@2> Function({required Map<String, dynamic> data, String? eventId, required String eventType, required String path, required String source}))
+dart:async:
+  Future (referenced)
+  FutureOr (referenced)
+dart:core:
+  DateTime (referenced)
+  Map (referenced)
+  Object (referenced)
+  String (referenced)
+  Uri (referenced)
+package:google_cloud_events/google_cloud_triggers.dart:
+  CloudEventTrigger (referenced)
+package:http/src/client.dart:
+  Client (referenced)
+package:http/src/response.dart:
+  Response@2 (referenced)
+package:protobuf/src/protobuf/internal.dart:
+  GeneratedMessage (referenced)
+package:shelf/src/request.dart:
+  Request (referenced)
+package:shelf/src/response.dart:
+  Response@1 (referenced)

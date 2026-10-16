@@ -18,27 +18,31 @@ graph TD
     A -->|2. generate_catalog| E(trigger_config.g.dart)
 ```
 
-### Stage 1: Pinned Upstream Protobuf Syncing *(Rare)*
+### Stage 1: Pinned Upstream Protobuf Syncing _(Rare)_
+
 ```bash
 dart run tool/sync_protos.dart
 ```
-* **Input Manifest:** [catalog/catalog.yaml](../catalog/catalog.yaml)
-* **What it does:** Shallow-fetches exact pinned Git commit SHAs of canonical
+
+- **Input Manifest:** [catalog/catalog.yaml](../catalog/catalog.yaml)
+- **What it does:** Shallow-fetches exact pinned Git commit SHAs of canonical
   Google CloudEvents tarballs into temp storage. Invokes `protoc` to compile
   `.pb.dart` models into `packages/google_cloud_events/lib/google/events/`.
-* **When to run:** Only when Google ships breaking `.proto` schema upgrades or
+- **When to run:** Only when Google ships breaking `.proto` schema upgrades or
   new target payload definitions.
 
 ---
 
-### Stage 2: Routing Catalog Generation *(Frequent)*
+### Stage 2: Routing Catalog Generation _(Frequent)_
+
 ```bash
 dart run tool/generate_catalog.dart
 ```
-* **Input Manifest:** [catalog/catalog.yaml](../catalog/catalog.yaml)
-* **What it does:** Reads the declared service families and triggers from
-  `catalog/catalog.yaml` and synthesizes both the Shelf runtime router enums
-  and CLI generator part files.
-* **Network Footprint:** **Zero.** Runs 100% offline.
-* **When to run:** Whenever a maintainer adds or modifies an Eventarc trigger in
+
+- **Input Manifest:** [catalog/catalog.yaml](../catalog/catalog.yaml)
+- **What it does:** Reads the declared service families and triggers from
+  `catalog/catalog.yaml` and synthesizes both the Shelf runtime router enums and
+  CLI generator part files.
+- **Network Footprint:** **Zero.** Runs 100% offline.
+- **When to run:** Whenever a maintainer adds or modifies an Eventarc trigger in
   `catalog/catalog.yaml`.
