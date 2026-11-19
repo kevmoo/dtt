@@ -213,7 +213,8 @@ triggers:
         check(mainTfContent).contains('attribute = "document"');
         check(mainTfContent).contains('value     = "documents/users/{userId}"');
         check(mainTfContent).contains(
-          'resource "google_pubsub_topic_iam_member" "firestore_pubsub_publisher"',
+          'resource "google_pubsub_topic_iam_member" '
+          '"firestore_pubsub_publisher"',
         );
         check(mainTfContent).contains(
           'resource "google_project_iam_audit_config" "firestore_audit"',
