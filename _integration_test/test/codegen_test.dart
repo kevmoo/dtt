@@ -52,7 +52,7 @@ triggers:
 
         // 3. Assert generated serverless entrypoint bin/server.dart is pristine
         final serverFile = File(p.join(packagePath, 'bin', 'server.dart'));
-        check(await serverFile.exists()).isTrue();
+        check(await serverFile.exists()).isTrue;
 
         final serverContent = await serverFile.readAsString();
         check(serverContent).contains(
@@ -66,7 +66,7 @@ triggers:
 
         // 4. Assert generated Main Terraform manifest is pristine
         final mainTfFile = File(p.join(workspacePath, 'terraform', 'main.tf'));
-        check(await mainTfFile.exists()).isTrue();
+        check(await mainTfFile.exists()).isTrue;
 
         final mainTfContent = await mainTfFile.readAsString();
         check(mainTfContent).contains('data "google_project" "project" {');
@@ -90,13 +90,13 @@ triggers:
           mainTfContent,
         ).contains('value     = "google.firebase.auth.user.v2.created"');
         check(mainTfContent).contains('path    = "/events/auth"');
-        check(mainTfContent).not((c) => c.contains('null_resource'));
+        check(mainTfContent).not(.it()..contains('null_resource'));
 
         // 5. Assert generated Variables Terraform manifest is pristine
         final varsTfFile = File(
           p.join(workspacePath, 'terraform', 'variables.tf'),
         );
-        check(await varsTfFile.exists()).isTrue();
+        check(await varsTfFile.exists()).isTrue;
 
         final varsTfContent = await varsTfFile.readAsString();
         check(varsTfContent).contains('default     = "n26-full-stack-dart"');
@@ -106,7 +106,7 @@ triggers:
         final outputsTfFile = File(
           p.join(workspacePath, 'terraform', 'outputs.tf'),
         );
-        check(await outputsTfFile.exists()).isTrue();
+        check(await outputsTfFile.exists()).isTrue;
 
         final outputsTfContent = await outputsTfFile.readAsString();
         check(
@@ -143,7 +143,7 @@ triggers:
         );
 
         final serverFile = File(p.join(packagePath, 'bin', 'server.dart'));
-        check(await serverFile.exists()).isTrue();
+        check(await serverFile.exists()).isTrue;
 
         final serverContent = await serverFile.readAsString();
         check(
@@ -186,7 +186,7 @@ triggers:
 
         // 3. Assert generated serverless entrypoint bin/server.dart is pristine
         final serverFile = File(p.join(packagePath, 'bin', 'server.dart'));
-        check(await serverFile.exists()).isTrue();
+        check(await serverFile.exists()).isTrue;
 
         final serverContent = await serverFile.readAsString();
         check(
@@ -198,7 +198,7 @@ triggers:
         // 4. Assert generated Main Terraform manifest contains all Firestore
         //    filters
         final mainTfFile = File(p.join(workspacePath, 'terraform', 'main.tf'));
-        check(await mainTfFile.exists()).isTrue();
+        check(await mainTfFile.exists()).isTrue;
 
         final mainTfContent = await mainTfFile.readAsString();
         check(mainTfContent).contains('data "google_project" "project" {');
@@ -213,7 +213,8 @@ triggers:
         check(mainTfContent).contains('attribute = "document"');
         check(mainTfContent).contains('value     = "documents/users/{userId}"');
         check(mainTfContent).contains(
-          'resource "google_pubsub_topic_iam_member" "firestore_pubsub_publisher"',
+          'resource "google_pubsub_topic_iam_member" '
+          '"firestore_pubsub_publisher"',
         );
         check(mainTfContent).contains(
           'resource "google_project_iam_audit_config" "firestore_audit"',
@@ -221,7 +222,7 @@ triggers:
         check(mainTfContent).contains('service = "firestore.googleapis.com"');
         check(mainTfContent).contains('log_type = "DATA_WRITE"');
         check(mainTfContent).contains('log_type = "DATA_READ"');
-        check(mainTfContent).not((c) => c.contains('service = "allServices"'));
+        check(mainTfContent).not(.it()..contains('service = "allServices"'));
       },
     );
 
@@ -256,7 +257,7 @@ triggers:
         );
 
         final mainTfFile = File(p.join(workspacePath, 'terraform', 'main.tf'));
-        check(await mainTfFile.exists()).isTrue();
+        check(await mainTfFile.exists()).isTrue;
         final mainTfContent = await mainTfFile.readAsString();
         check(mainTfContent).contains('default_labels = {');
         check(mainTfContent).contains('managed_by = "dart_terraform_triggers"');
@@ -298,7 +299,7 @@ triggers:
         );
 
         final serverFile = File(p.join(packagePath, 'bin', 'server.dart'));
-        check(await serverFile.exists()).isTrue();
+        check(await serverFile.exists()).isTrue;
         final serverContent = await serverFile.readAsString();
         check(serverContent).contains('CloudEventTrigger.gcsObjectDeleted');
         check(
