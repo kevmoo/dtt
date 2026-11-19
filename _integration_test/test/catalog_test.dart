@@ -16,7 +16,7 @@ void main() {
     setUp(() {
       rootDir = p.canonicalize(p.join(Directory.current.path, '..'));
       catalogFile = File(p.join(rootDir, 'catalog', 'catalog.yaml'));
-      check(catalogFile.existsSync()).isTrue();
+      check(catalogFile.existsSync()).isTrue;
       doc = loadYaml(catalogFile.readAsStringSync()) as YamlMap;
     });
 
@@ -27,7 +27,7 @@ void main() {
 
       final services = doc['services'] as YamlMap?;
       check(services).isNotNull();
-      check(services!).isNotEmpty();
+      check(services!).isNotEmpty;
     });
 
     test(
@@ -52,14 +52,14 @@ void main() {
           final triggers = (svc['triggers'] as YamlList)
               .map((t) => t.toString())
               .toList();
-          check(triggers).isNotEmpty();
+          check(triggers).isNotEmpty;
 
           final sortedTriggers = List<String>.from(triggers)..sort();
           check(triggers).deepEquals(sortedTriggers);
 
           for (final trigger in triggers) {
-            check(trigger.startsWith(key)).isTrue();
-            check(allTriggers.contains(trigger)).isFalse();
+            check(trigger.startsWith(key)).isTrue;
+            check(allTriggers.contains(trigger)).isFalse;
             allTriggers.add(trigger);
           }
         }
@@ -85,7 +85,7 @@ void main() {
 
           if (eventsImport.startsWith('package:')) {
             // External well-known package type (e.g. package:protobuf/...)
-            check(protoClass).isNotEmpty();
+            check(protoClass).isNotEmpty;
             continue;
           }
 
@@ -95,7 +95,7 @@ void main() {
             because:
                 'Service [$key] events_import [$eventsImport] '
                 'must exist on disk.',
-          ).isTrue();
+          ).isTrue;
 
           final fileContent = targetDartFile.readAsStringSync();
           final classPattern = RegExp('class\\s+$protoClass\\s+extends\\s+');
@@ -104,7 +104,7 @@ void main() {
             because:
                 'File [$eventsImport] must declare generated class '
                 '[$protoClass].',
-          ).isTrue();
+          ).isTrue;
         }
       },
     );
@@ -120,7 +120,7 @@ void main() {
 
         if (triggers.length == 1) {
           // Single-trigger services should omit baseline_action in YAML
-          check(svc['baseline_action']).isNull();
+          check(svc['baseline_action']).isNull;
         } else {
           // Multi-trigger services must explicitly declare baseline action
           check(svc['baseline_action']).isNotNull();

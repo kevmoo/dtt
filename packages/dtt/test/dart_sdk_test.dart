@@ -10,9 +10,9 @@ void main() {
   group('resolveDartExecutable', () {
     test('returns a valid dart executable path', () {
       final exe = resolveDartExecutable();
-      check(exe).isNotEmpty();
+      check(exe).isNotEmpty;
       if (exe != 'dart') {
-        check(File(exe).existsSync()).isTrue();
+        check(File(exe).existsSync()).isTrue;
       }
     });
   });

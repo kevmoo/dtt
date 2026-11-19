@@ -73,12 +73,12 @@ void main() {
 
         // Verify declarative main.tf contains no null_resource
         final mainTfFile = File(p.join(tfDir, 'main.tf'));
-        check(await mainTfFile.exists()).isTrue();
+        check(await mainTfFile.exists()).isTrue;
         final mainTfContent = await mainTfFile.readAsString();
         check(
           mainTfContent,
         ).contains('resource "google_cloud_run_v2_service" "service"');
-        check(mainTfContent).not((c) => c.contains('null_resource'));
+        check(mainTfContent).not(.it()..contains('null_resource'));
 
         // 3. Run dtt build
         print('2. Running dtt build...');
@@ -97,7 +97,7 @@ void main() {
 
         // Verify build_state.json exists
         final stateFile = File(p.join(exampleDir, '.dtt', 'build_state.json'));
-        check(await stateFile.exists()).isTrue();
+        check(await stateFile.exists()).isTrue;
         final stateContent = await stateFile.readAsString();
         final stateJson = jsonDecode(stateContent) as Map<String, dynamic>;
         final containerImage = stateJson['full_image_digest'] as String;
